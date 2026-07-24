@@ -57,7 +57,7 @@ export function HowItWorks() {
         </motion.div>
 
         <motion.div
-          className="grid grid-cols-1 gap-12 md:grid-cols-3"
+          className="grid grid-cols-1 gap-12 sm:grid-cols-3"
           variants={container}
           initial="hidden"
           whileInView="show"
@@ -86,7 +86,7 @@ export function HowItWorks() {
                 <p className="landing-card-text max-w-sm mx-auto">{step.description}</p>
 
                 {step.step !== '3' && (
-                  <div className="hidden md:block absolute top-12 left-[60%] w-[80%] h-0.5 bg-gradient-to-r from-accent-blue/40 to-accent-purple/40 -z-10" />
+                  <div className="hidden sm:block absolute top-12 left-[60%] w-[80%] h-0.5 bg-gradient-to-r from-accent-blue/40 to-accent-purple/40 -z-10" />
                 )}
               </motion.div>
             );
