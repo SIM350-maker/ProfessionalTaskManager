@@ -1,0 +1,40 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"mcp": {
+			"servers": {
+				"com.figma.mcp/mcp": {
+					"type": "http",
+					"url": "https://mcp.figma.com/mcp",
+					"gallery": "https://api.mcp.github.com",
+					"version": "1.0.3"
+				}
+			},
+			"inputs": []
+		}
+	},
+	"extensions": {
+		"recommendations": [
+			"dbaeumer.vscode-eslint",
+			"esbenp.prettier-vscode",
+			"bradlc.vscode-tailwindcss",
+			"prisma.prisma",
+			"usernamehw.errorlens",
+			"christian-kohler.path-intellisense",
+			"eamodio.gitlens",
+			"github.vscode-pull-request-github",
+			"ms-vscode.vscode-typescript-next",
+			"aaron-bond.better-comments",
+			"gruntfuggly.todo-tree",
+			"ms-azuretools.vscode-docker",
+			"streetsidesoftware.code-spell-checker",
+			"redhat.vscode-yaml"
+		]
+	},
+	"launch": {},
+	"tasks": {}
+}

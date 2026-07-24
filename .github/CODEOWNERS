@@ -1,0 +1,26 @@
+# Default owners for everything
+* @professionaltaskmanager/core-team
+
+# Application source
+/apps/web/src/ @professionaltaskmanager/frontend-team @professionaltaskmanager/backend-team
+
+# API Routes
+/apps/web/src/app/api/ @professionaltaskmanager/backend-team
+
+# Database
+/apps/web/prisma/ @professionaltaskmanager/database-team
+
+# Infrastructure
+/Dockerfile @professionaltaskmanager/devops-team
+/docker-compose.yml @professionaltaskmanager/devops-team
+/.github/workflows/ @professionaltaskmanager/devops-team
+
+# Documentation
+/docs/ @professionaltaskmanager/documentation-team
+
+# Tests
+/apps/web/tests/ @professionaltaskmanager/qa-team
+
+# Configuration
+/apps/web/package.json @professionaltaskmanager/core-team
+/apps/web/tsconfig.json @professionaltaskmanager/core-team
