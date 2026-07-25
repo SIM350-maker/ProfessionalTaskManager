@@ -34,7 +34,8 @@ export const registerSchema = z.object({
   password: passwordSchema,
   firstName: nameSchema,
   lastName: nameSchema,
-  organizationName: z.string().min(1).max(200),
+  mode: z.enum(['PERSONAL', 'ORGANIZATION']),
+  organizationName: z.string().min(1).max(200).optional(),
 });
 
 export const loginSchema = z.object({
@@ -68,6 +69,7 @@ export const createProjectSchema = z.object({
   color: hexColorSchema,
   startDate: isoDateSchema,
   endDate: isoDateSchema,
+  leadId: z.string().uuid().optional().nullable(),
 });
 
 export const updateProjectSchema = createProjectSchema.partial();

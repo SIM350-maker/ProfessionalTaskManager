@@ -35,7 +35,7 @@ export function Heatmap({ data, startDate, endDate, title, subtitle, cellSize = 
 
     const weeks: { date: Date; value: number }[][] = [];
     let currentWeek: { date: Date; value: number }[] = [];
-    let cursor = new Date(startDate);
+    const cursor = new Date(startDate);
     cursor.setHours(0, 0, 0, 0);
 
     const dayOfWeek = cursor.getDay();

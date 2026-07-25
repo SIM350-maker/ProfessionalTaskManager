@@ -1,4 +1,4 @@
-import type { HTMLAttributes, ReactNode } from "react";
+import type { HTMLAttributes } from "react";
 import { cn } from "@/lib/helpers";
 
 type CardVariant = "default" | "elevated" | "flat" | "kpi";

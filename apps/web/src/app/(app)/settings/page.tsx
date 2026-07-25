@@ -6,20 +6,23 @@ import { getCustomFieldsByOrg } from '@/services/custom-fields';
 import { getAutomationRulesByOrg } from '@/services/automation';
 import { getTaskTemplatesByOrg } from '@/services/task-templates';
 import { PageTransition } from '@/components/animations/PageTransition';
-import { Settings } from 'lucide-react';
+import { Settings, Users } from 'lucide-react';
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 
 export default async function SettingsPage() {
   const user = await requireAuth();
 
   const [prefs, organization] = await Promise.all([
     prisma.userPreferences.findUnique({ where: { userId: user.id } }),
-    prisma.organization.findUnique({ where: { id: user.organizationId }, select: { settings: true } }),
+    user.organizationId ? prisma.organization.findUnique({ where: { id: user.organizationId }, select: { settings: true } }) : Promise.resolve(null),
   ]);
 
-  const workflows = await getWorkflowsByOrg(user.organizationId, 'TASK');
-  const customFields = await getCustomFieldsByOrg(user.organizationId, 'TASK');
-  const automationRules = await getAutomationRulesByOrg(user.organizationId);
-  const taskTemplates = await getTaskTemplatesByOrg(user.organizationId);
+  const workflows = user.organizationId ? await getWorkflowsByOrg(user.organizationId, 'TASK') : [];
+  const customFields = user.organizationId ? await getCustomFieldsByOrg(user.organizationId, 'TASK') : [];
+  const automationRules = user.organizationId ? await getAutomationRulesByOrg(user.organizationId) : [];
+  const taskTemplates = user.organizationId ? await getTaskTemplatesByOrg(user.organizationId) : [];
 
   const orgSettings = (organization?.settings ?? {}) as { slackWebhookUrl?: string };
 
@@ -33,6 +36,27 @@ export default async function SettingsPage() {
             <p className="text-sm text-text-secondary">Manage your account and preferences</p>
           </div>
         </div>
+
+        {user.isPersonalMode && (
+          <Card variant="elevated" className="border-accent-blue/30 bg-accent-blue-light/20">
+            <CardContent className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-4">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent-blue-light text-accent-blue">
+                  <Users className="h-5 w-5" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-text-primary">Upgrade to Organization Mode</h2>
+                  <p className="mt-1 text-sm text-text-secondary">
+                    Collaborate with your team, assign roles, and unlock advanced features like workflows, automation, and reports.
+                  </p>
+                </div>
+              </div>
+              <Link href="/auth/register?mode=ORGANIZATION">
+                <Button className="shrink-0">Create Organization</Button>
+              </Link>
+            </CardContent>
+          </Card>
+        )}
 
         <SettingsTabs
           initialEmailEnabled={prefs?.notificationEmailEnabled ?? true}

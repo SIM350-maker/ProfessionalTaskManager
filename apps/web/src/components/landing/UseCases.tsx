@@ -47,19 +47,19 @@ const container = {
   hidden: { opacity: 0 },
   show: {
     opacity: 1,
-    transition: { staggerChildren: 0.15, delayChildren: 0.2 },
+    transition: { staggerChildren: 0.12, delayChildren: 0.2 },
   },
 };
 
 const item = {
-  hidden: { opacity: 0, y: 40, scale: 0.95 },
+  hidden: { opacity: 0, y: 40, scale: 0.97 },
   show: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.7, ease: 'easeOut' as const } },
 };
 
 export function UseCases() {
   return (
-    <section className="landing-section-alt relative overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-b from-bg-subtle via-transparent to-bg-subtle" />
+    <section className="relative py-24 overflow-hidden">
+      <div className="absolute inset-0 bg-gradient-to-b from-bg-subtle/60 via-transparent to-bg-subtle/60" />
 
       <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <motion.div
@@ -69,9 +69,11 @@ export function UseCases() {
           viewport={{ once: true, margin: '-100px' }}
           transition={{ duration: 0.7 }}
         >
-          <h2 className="landing-section-title">Built for Kenyan organizations</h2>
-          <p className="landing-section-subtitle">
-            From government parastatals to startups — adapts to your industry.
+          <h2 className="text-3xl sm:text-4xl font-bold text-white tracking-tight mb-4">
+            Built for Kenyan organizations
+          </h2>
+          <p className="text-white/60 max-w-2xl mx-auto">
+            From government parastatals to startups — adapts to your industry and way of working.
           </p>
         </motion.div>
 
@@ -89,22 +91,22 @@ export function UseCases() {
               <motion.div
                 key={useCase.title}
                 variants={item}
-                className="landing-card p-8 group"
+                className="glass-card p-8"
               >
-                <div className="flex items-start gap-4 mb-4">
-                  <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${colors.bg} ${colors.icon} transition-transform group-hover:scale-110`}>
-                    <Icon className="h-6 w-6" />
+                <div className="flex items-start gap-5 mb-5">
+                  <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl ${colors.bg} ${colors.icon} transition-transform duration-500 group-hover:scale-110`}>
+                    <Icon className="h-7 w-7" />
                   </div>
                   <div>
-                    <h3 className="landing-card-title text-xl">{useCase.title}</h3>
-                    <p className="landing-card-text mt-2">{useCase.description}</p>
+                    <h3 className="text-xl font-semibold text-white mb-2">{useCase.title}</h3>
+                    <p className="text-sm text-white/60 leading-relaxed">{useCase.description}</p>
                   </div>
                 </div>
-                <div className="flex flex-wrap gap-2 mt-4">
+                <div className="flex flex-wrap gap-2">
                   {useCase.sectors.map((sector) => (
                     <span
                       key={sector}
-                      className={`landing-use-case-tag ${colors.bg} ${colors.text} ${colors.border} border`}
+                      className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium ${colors.bg} ${colors.text} ${colors.border}`}
                     >
                       {sector}
                     </span>

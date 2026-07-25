@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { Check } from 'lucide-react';
+import { useState } from 'react';
 import { cn } from '@/lib/helpers';
 
 const tiers = [
@@ -61,9 +62,11 @@ const item = {
 };
 
 export function PricingCards() {
+  const [isYearly, setIsYearly] = useState(false);
+
   return (
-    <section className="landing-section-alt relative overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-bg-subtle to-transparent opacity-50" />
+    <section className="relative py-24 overflow-hidden">
+      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-bg-subtle/40 to-transparent" />
 
       <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <motion.div
@@ -73,10 +76,36 @@ export function PricingCards() {
           viewport={{ once: true, margin: '-100px' }}
           transition={{ duration: 0.7 }}
         >
-          <h2 className="landing-section-title">Simple, transparent pricing</h2>
-          <p className="landing-section-subtitle">
+          <h2 className="text-3xl sm:text-4xl font-bold text-white tracking-tight mb-4">
+            Simple, transparent pricing
+          </h2>
+          <p className="text-white/60 max-w-2xl mx-auto mb-8">
             Choose the plan that fits your organization. All prices in Kenyan Shillings.
           </p>
+
+          <div className="pricing-toggle">
+            <button
+              type="button"
+              onClick={() => setIsYearly(false)}
+              className={cn('pricing-toggle-option', !isYearly && 'active')}
+            >
+              Monthly
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsYearly(true)}
+              className={cn('pricing-toggle-option', isYearly && 'active')}
+            >
+              Yearly
+            </button>
+            <div
+              className="pricing-toggle-indicator"
+              style={{
+                width: '50%',
+                left: isYearly ? '50%' : '0%',
+              }}
+            />
+          </div>
         </motion.div>
 
         <motion.div
@@ -93,8 +122,8 @@ export function PricingCards() {
               className={cn(
                 'relative rounded-2xl p-6 transition-all duration-300',
                 tier.featured
-                  ? 'landing-pricing-card-featured'
-                  : 'landing-pricing-card hover:border-border-hover'
+                  ? 'landing-pricing-card-featured bg-white/5'
+                  : 'glass-card hover:border-white/20'
               )}
             >
               {tier.featured && (
@@ -106,18 +135,18 @@ export function PricingCards() {
               )}
 
               <div className="text-center mb-6">
-                <h3 className="landing-pricing-name">{tier.name}</h3>
+                <h3 className="text-lg font-semibold text-white">{tier.name}</h3>
                 <div className="mt-3">
-                  <span className="landing-pricing-price">{tier.price}</span>
-                  {tier.period && <span className="landing-pricing-period">{tier.period}</span>}
+                  <span className="text-3xl font-bold text-white">{tier.price}</span>
+                  {tier.period && <span className="text-sm text-white/50 ml-1">{tier.period}</span>}
                 </div>
-                <p className="landing-pricing-desc">{tier.description}</p>
+                <p className="text-sm text-white/60 mt-2">{tier.description}</p>
               </div>
 
               <ul className="space-y-3 mb-8">
                 {tier.features.map((feature) => (
-                  <li key={feature} className="flex items-start gap-2 text-sm text-text-secondary">
-                    <Check className="landing-check-icon mt-0.5 shrink-0" />
+                  <li key={feature} className="flex items-start gap-2 text-sm text-white/70">
+                    <Check className="h-4 w-4 text-accent-green shrink-0 mt-0.5" />
                     <span>{feature}</span>
                   </li>
                 ))}
@@ -126,8 +155,8 @@ export function PricingCards() {
               <motion.a
                 href={tier.href}
                 className={cn(
-                  'block w-full rounded-lg text-center font-semibold transition-all duration-300',
-                  tier.featured ? 'landing-pricing-cta-primary' : 'landing-pricing-cta-secondary'
+                  'block w-full rounded-full text-center font-semibold transition-all duration-300',
+                  tier.featured ? 'btn-primary-modern' : 'btn-secondary-modern'
                 )}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}

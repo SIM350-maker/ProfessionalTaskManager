@@ -4,7 +4,7 @@ import { useRef, useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Bell, Sun, Moon, LogOut, User, Settings as SettingsIcon, ChevronRight, Keyboard } from "lucide-react";
+import { Search, Bell, LogOut, User, Settings as SettingsIcon, ChevronRight, Keyboard } from "lucide-react";
 import { cn, getInitials, timeAgo } from "@/lib/helpers";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { logoutUser } from "@/actions";
@@ -22,7 +22,7 @@ function isTypingTarget(target: EventTarget | null): boolean {
 
 interface HeaderProps {
   actions?: React.ReactNode;
-  user?: { firstName: string; lastName: string; avatarUrl?: string | null; role: string } | null;
+  user?: { firstName: string; lastName: string; avatarUrl?: string | null; role: string; isPersonalMode?: boolean } | null;
 }
 
 const BREADCRUMB_MAP: Record<string, { label: string; href?: string }[]> = {
@@ -115,9 +115,11 @@ export function Header({ actions, user }: HeaderProps) {
         <nav className="hidden sm:flex items-center gap-1.5 text-sm">
           {breadcrumbItems.map((item, i) => (
             <span key={i} className="flex items-center gap-1.5">
-              {i > 0 && <ChevronRight className="h-3.5 w-3.5 text-text-tertiary" />}
-              {item.href ? (
-                <Link href={item.href as any} className="text-text-secondary hover:text-text-primary transition-colors">
+               {i > 0 && <ChevronRight className="h-3.5 w-3.5 text-text-tertiary" />}
+                 {item.href ? (
+                  <Link
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    href={item.href as any} className="text-text-secondary hover:text-text-primary transition-colors">
                   {item.label}
                 </Link>
               ) : (

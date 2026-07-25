@@ -35,34 +35,38 @@ export function CommandPalette({ open, onClose, role }: CommandPaletteProps) {
     ? roleItems.filter((item) => item.keywords.includes(query.toLowerCase()))
     : roleItems;
 
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      if (!open) return;
-      if (e.key === 'Escape') {
-        onClose();
-        return;
-      }
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        setSelectedIndex((i) => (i + 1) % filtered.length);
-        return;
-      }
-      if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        setSelectedIndex((i) => (i - 1 + filtered.length) % filtered.length);
-        return;
-      }
-      if (e.key === 'Enter' && filtered[selectedIndex]) {
-        router.push(filtered[selectedIndex].href as Parameters<typeof router.push>[0]);
-        onClose();
-      }
-    },
-    [open, onClose, filtered, selectedIndex, router],
-  );
+  const handleKeyDown = (e: KeyboardEvent) => {
+    if (!open) return;
+    if (e.key === 'Escape') {
+      onClose();
+      return;
+    }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setSelectedIndex((i) => (i + 1) % filtered.length);
+      return;
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setSelectedIndex((i) => (i - 1 + filtered.length) % filtered.length);
+      return;
+    }
+    if (e.key === 'Enter' && filtered[selectedIndex]) {
+      router.push(filtered[selectedIndex].href as Parameters<typeof router.push>[0]);
+      onClose();
+    }
+  };
+
+  const openRef = useRef(open);
+  useEffect(() => {
+    openRef.current = open;
+  });
 
   useEffect(() => {
     if (open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setQuery('');
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedIndex(0);
       setTimeout(() => inputRef.current?.focus(), 50);
     }

@@ -34,16 +34,16 @@ interface DashboardGridProps {
 }
 
 export function DashboardGrid({ children, storageKey }: DashboardGridProps) {
-  const [items, setItems] = useState<string[]>([]);
-  const [isCustomizing, setIsCustomizing] = useState(false);
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
-
-  useEffect(() => {
+  const [items, setItems] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem(storageKey);
-      if (saved) setItems(JSON.parse(saved));
-    } catch { /* ignore */ }
-  }, [storageKey]);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [isCustomizing, setIsCustomizing] = useState(false);
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   useEffect(() => {
     if (items.length > 0) {

@@ -29,6 +29,9 @@ export async function PATCH(
     if (csrfError) return csrfError;
 
     const { id } = await params;
+    if (!user.organizationId) {
+      return NextResponse.json({ success: false, error: { code: 'FORBIDDEN', message: 'Organization required' } }, { status: 403 });
+    }
     const existing = await findScopedField(id, user.organizationId);
     if (!existing) {
       return NextResponse.json({ success: false, error: { code: 'NOT_FOUND', message: 'Custom field not found' } }, { status: 404 });
@@ -66,6 +69,9 @@ export async function DELETE(
     if (csrfError) return csrfError;
 
     const { id } = await params;
+    if (!user.organizationId) {
+      return NextResponse.json({ success: false, error: { code: 'FORBIDDEN', message: 'Organization required' } }, { status: 403 });
+    }
     const existing = await findScopedField(id, user.organizationId);
     if (!existing) {
       return NextResponse.json({ success: false, error: { code: 'NOT_FOUND', message: 'Custom field not found' } }, { status: 404 });

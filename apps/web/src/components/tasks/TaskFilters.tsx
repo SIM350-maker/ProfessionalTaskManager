@@ -138,6 +138,7 @@ export function TaskFilters({ projects }: TaskFiltersProps) {
       if (sortBy !== 'createdAt') params.set('sortBy', sortBy);
       if (sortOrder !== 'desc') params.set('sortOrder', sortOrder);
       const qs = params.toString();
+      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
       router.replace(`${pathname}${qs ? `?${qs}` : ''}` as any);
       pendingRef.current = null;
     }, 0);

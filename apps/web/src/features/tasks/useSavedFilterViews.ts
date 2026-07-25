@@ -29,11 +29,7 @@ function readViews(): SavedFilterView[] {
 
 /** Saved task-filter views, persisted per-browser via localStorage (no server round-trip needed). */
 export function useSavedFilterViews() {
-  const [views, setViews] = useState<SavedFilterView[]>([]);
-
-  useEffect(() => {
-    setViews(readViews());
-  }, []);
+  const [views, setViews] = useState<SavedFilterView[]>(() => readViews());
 
   const saveView = useCallback((name: string, params: SavedFilterView['params']) => {
     setViews((prev) => {

@@ -72,7 +72,8 @@ export interface SessionUser {
   email: string;
   firstName: string;
   lastName: string;
-  organizationId: string;
+  organizationId: string | null;
+  isPersonalMode: boolean;
   /** @deprecated legacy 3-value role, superseded by roleId/roleName/permissions — kept during the RBAC migration */
   role: UserRole;
   avatarUrl: string | null;

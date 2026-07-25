@@ -43,7 +43,10 @@ export function useUnreadNotificationCount() {
 export function useNotifications() {
   const { payload, setPayload } = useNotificationStream();
   const payloadRef = useRef(payload);
-  payloadRef.current = payload;
+
+  useEffect(() => {
+    payloadRef.current = payload;
+  });
 
   const markAsRead = useCallback(async (notificationId?: string) => {
     try {

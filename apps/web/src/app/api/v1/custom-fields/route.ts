@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
     const entityType = searchParams.get('entityType') || 'TASK';
     const projectId = searchParams.get('projectId') || undefined;
 
-    const fields = await getCustomFieldsByOrg(user.organizationId, entityType, projectId);
+    const fields = user.organizationId ? await getCustomFieldsByOrg(user.organizationId, entityType, projectId) : [];
 
     return NextResponse.json({ data: fields });
   } catch (error) {
@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const user = await getApiUser();
-    if (!user || !['ADMINISTRATOR', 'MANAGER'].includes(user.role)) {
+    if (!user || !user.organizationId || !['ADMINISTRATOR', 'MANAGER'].includes(user.role)) {
       return NextResponse.json({ success: false, error: { code: 'FORBIDDEN', message: 'Permission denied' } }, { status: 403 });
     }
 

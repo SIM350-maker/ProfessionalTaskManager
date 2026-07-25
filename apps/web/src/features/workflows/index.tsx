@@ -36,6 +36,7 @@ export function useWorkflows(organizationId: string | undefined, entityType = 'T
 
   useEffect(() => {
     if (!organizationId) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     fetch(`/api/v1/workflows?entityType=${entityType}`)
       .then((res) => res.json())

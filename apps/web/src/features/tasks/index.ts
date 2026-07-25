@@ -146,7 +146,7 @@ export function filterTasks(tasks: TaskWithChanges[], filters: TaskFilters): Tas
 
 type TaskWithChanges = TaskWithRelations & { status: TaskStatus };
 
-export interface TaskCustomFields extends Record<string, unknown> {}
+export type TaskCustomFields = Record<string, unknown>;
 
 export function useTaskCustomFields(projectId: string | undefined) {
   const [fields, setFields] = useState<CustomFieldDefinition[]>([]);
@@ -155,7 +155,6 @@ export function useTaskCustomFields(projectId: string | undefined) {
 
   useEffect(() => {
     if (!projectId) return;
-    setLoading(true);
     fetch(`/api/v1/custom-fields?entityType=TASK&projectId=${projectId}`)
       .then((res) => res.json())
       .then((data) => {

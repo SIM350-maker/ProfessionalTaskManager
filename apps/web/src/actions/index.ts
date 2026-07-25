@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/database';
+import type { Prisma } from '@generated/prisma/client';
 import { getCurrentUser, hasPermission } from '@/lib/auth';
 import { createSession, deleteSession, deleteUserSessions } from '@/lib/session';
 import {
@@ -60,30 +61,89 @@ export async function registerUser(formData: FormData) {
     return { success: false, error: parsed.error.flatten() };
   }
 
-  const { email, password, firstName, lastName, organizationName } = parsed.data;
+  const { email, password, firstName, lastName, mode, organizationName } = parsed.data;
 
   const existingUser = await prisma.user.findUnique({ where: { email } });
   if (existingUser) {
     return { success: false, error: { message: 'Email already registered' } };
   }
 
-  const existingOrg = await prisma.organization.findFirst({ where: { name: organizationName } });
+  const bcrypt = await import('bcryptjs');
+  const passwordHash = await bcrypt.hash(password, 12);
+  const emailVerificationToken = crypto.randomUUID();
+
+  if (mode === 'PERSONAL') {
+    const user = await prisma.user.create({
+      data: {
+        email,
+        firstName,
+        lastName,
+        passwordHash,
+        isPersonalMode: true,
+        emailVerificationToken,
+        role: 'TEAM_MEMBER',
+      },
+    });
+
+    const personalProject = await prisma.project.create({
+      data: {
+        name: 'Personal Tasks',
+        description: 'Your personal task workspace',
+        isPersonal: true,
+        visibility: 'PRIVATE',
+        ownerId: user.id,
+        createdBy: user.id,
+        organizationId: null,
+      },
+    });
+
+    const defaultTemplates: Array<{
+      name: string;
+      description: string;
+      defaultStatus: 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE' | 'ARCHIVED';
+      defaultPriority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+      estimatedHours: number;
+      fields: Record<string, unknown>;
+    }> = [
+      { name: 'Daily Standup', description: 'Daily team standup meeting', defaultStatus: 'TODO', defaultPriority: 'MEDIUM', estimatedHours: 0.5, fields: {} },
+      { name: 'Weekly Review', description: 'Weekly progress review', defaultStatus: 'TODO', defaultPriority: 'MEDIUM', estimatedHours: 1, fields: {} },
+      { name: 'Bug Fix', description: 'Fix a reported bug', defaultStatus: 'TODO', defaultPriority: 'HIGH', estimatedHours: 2, fields: {} },
+      { name: 'Feature Implementation', description: 'Implement a new feature', defaultStatus: 'TODO', defaultPriority: 'MEDIUM', estimatedHours: 4, fields: {} },
+      { name: 'Documentation', description: 'Write or update documentation', defaultStatus: 'TODO', defaultPriority: 'LOW', estimatedHours: 1, fields: {} },
+    ];
+
+    await prisma.taskTemplate.createMany({
+      data: defaultTemplates.map((tpl) => ({
+        ...tpl,
+        organizationId: null,
+        createdBy: user.id,
+        fields: {} as Prisma.InputJsonValue,
+      })),
+    });
+
+    const session = await createSession(user.id);
+    const cookieStore = await cookies();
+    cookieStore.set('session_token', session.token, {
+      ...COOKIE_OPTIONS,
+      expires: session.expiresAt,
+    });
+
+    return { success: true, data: { userId: user.id, organizationId: null, isPersonalMode: true, projectId: personalProject.id } };
+  }
+
+  const existingOrg = await prisma.organization.findFirst({ where: { name: organizationName! } });
   const isNewOrg = !existingOrg;
 
   const organization = existingOrg ?? await prisma.organization.create({
     data: {
-      name: organizationName,
-      slug: organizationName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
+      name: organizationName!,
+      slug: organizationName!.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
     },
   });
 
   const roles = await ensureSystemRolesForOrg(organization.id);
   const assignedRole = isNewOrg ? roles.admin : roles.member;
 
-  const bcrypt = await import('bcryptjs');
-  const passwordHash = await bcrypt.hash(password, 12);
-
-  const emailVerificationToken = crypto.randomUUID();
   const user = await prisma.user.create({
     data: {
       email,
@@ -103,7 +163,14 @@ export async function registerUser(formData: FormData) {
     html: buildEmailVerificationEmail(`${env.NEXT_PUBLIC_APP_URL}/auth/verify-email/${emailVerificationToken}`),
   });
 
-  return { success: true, data: { userId: user.id, organizationId: organization.id } };
+  const session = await createSession(user.id);
+  const cookieStore = await cookies();
+  cookieStore.set('session_token', session.token, {
+    ...COOKIE_OPTIONS,
+    expires: session.expiresAt,
+  });
+
+  return { success: true, data: { userId: user.id, organizationId: organization.id, isPersonalMode: false } };
 }
 
 export async function loginUser(formData: FormData) {
@@ -260,7 +327,7 @@ export async function resendVerificationEmail(formData: FormData) {
 export async function createTask(formData: FormData) {
   const user = await getCurrentUser();
   if (!user) return { success: false, error: { message: 'Unauthorized' } };
-  if (!hasPermission(user.role, 'task:create')) {
+  if (!user.isPersonalMode && !hasPermission(user.role, 'task:create')) {
     return { success: false, error: { message: 'Permission denied' } };
   }
 
@@ -320,7 +387,7 @@ export async function createTask(formData: FormData) {
       where: { id: taskData.projectId },
       select: { organizationId: true },
     });
-    if (project) {
+    if (project && project.organizationId) {
       await evaluateAutomationRules(project.organizationId, 'TASK_CREATED', {
         taskId: task.id,
         projectId: task.projectId,
@@ -352,15 +419,15 @@ export async function updateTask(taskId: string, formData: FormData) {
     where: { id: taskId },
     include: {
       assignees: { select: { userId: true } },
-      project: { select: { organizationId: true } },
+      project: { select: { organizationId: true, isPersonal: true } },
     },
   });
-  if (!existingTask || existingTask.project.organizationId !== user.organizationId) {
+  if (!existingTask || (existingTask.project.organizationId && existingTask.project.organizationId !== user.organizationId)) {
     return { success: false, error: { message: 'Task not found' } };
   }
 
   const isAssignee = existingTask.assignees.some((a) => a.userId === user.id);
-  if (!hasPermission(user.role, 'task:update') && !isAssignee) {
+  if (!user.isPersonalMode && !hasPermission(user.role, 'task:update') && !isAssignee) {
     return { success: false, error: { message: 'Permission denied' } };
   }
 
@@ -417,7 +484,7 @@ export async function updateTask(taskId: string, formData: FormData) {
       where: { id: task.projectId },
       select: { organizationId: true },
     });
-    if (project) {
+    if (project && project.organizationId) {
       const oldStatus = existingTask.status;
       const newStatus = task.status;
       await evaluateAutomationRules(project.organizationId, 'TASK_UPDATED', {
@@ -457,15 +524,15 @@ export async function updateTaskStatus(taskId: string, status: string) {
     where: { id: taskId },
     include: {
       assignees: { include: { user: { select: { id: true } } } },
-      project: { select: { name: true, organizationId: true } },
+      project: { select: { name: true, organizationId: true, isPersonal: true } },
     },
   });
-  if (!task || task.project.organizationId !== user.organizationId) {
+  if (!task || (task.project.organizationId && task.project.organizationId !== user.organizationId)) {
     return { success: false, error: { message: 'Task not found' } };
   }
 
   const isAssignee = task.assignees.some((a) => a.userId === user.id);
-  if (!hasPermission(user.role, 'task:update') && !isAssignee) {
+  if (!user.isPersonalMode && !hasPermission(user.role, 'task:update') && !isAssignee) {
     return { success: false, error: { message: 'Permission denied' } };
   }
 
@@ -478,19 +545,21 @@ export async function updateTaskStatus(taskId: string, status: string) {
     },
   });
 
-  if (status === 'DONE') {
+  if (status === 'DONE' && task.project.organizationId) {
     const managerIds = task.assignees.map((a) => a.user.id).filter((id) => id !== user.id);
     await notifyTaskCompleted(taskId, task.title, `${user.firstName} ${user.lastName}`, user.id, managerIds, task.project.organizationId);
   }
 
   try {
-    await evaluateAutomationRules(task.project.organizationId, 'TASK_STATUS_CHANGED', {
-      taskId: task.id,
-      projectId: task.projectId,
-      userId: user.id,
-      oldStatus: task.status,
-      newStatus: status,
-    });
+    if (task.project.organizationId) {
+      await evaluateAutomationRules(task.project.organizationId, 'TASK_STATUS_CHANGED', {
+        taskId: task.id,
+        projectId: task.projectId,
+        userId: user.id,
+        oldStatus: task.status,
+        newStatus: status,
+      });
+    }
   } catch (error) {
     console.error('Automation rule evaluation failed for TASK_STATUS_CHANGED:', error);
   }
@@ -505,13 +574,13 @@ export async function deleteTask(taskId: string) {
 
   const task = await prisma.task.findUnique({
     where: { id: taskId },
-    include: { project: { select: { organizationId: true } } },
+    include: { project: { select: { organizationId: true, isPersonal: true } } },
   });
-  if (!task || task.project.organizationId !== user.organizationId) {
+  if (!task || (task.project.organizationId && task.project.organizationId !== user.organizationId)) {
     return { success: false, error: { message: 'Task not found' } };
   }
 
-  if (!hasPermission(user.role, 'task:delete') && task.createdBy !== user.id) {
+  if (!user.isPersonalMode && !hasPermission(user.role, 'task:delete') && task.createdBy !== user.id) {
     return { success: false, error: { message: 'Permission denied' } };
   }
 
@@ -528,7 +597,7 @@ const BULK_TASK_STATUSES = ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE', 'ARCHIVE
 
 export async function bulkUpdateTaskStatus(taskIds: string[], status: string) {
   const user = await getCurrentUser();
-  if (!user || !hasPermission(user.role, 'task:update')) {
+  if (!user || (!user.isPersonalMode && !hasPermission(user.role, 'task:update'))) {
     return { success: false, error: { message: 'Permission denied' } };
   }
   if (!BULK_TASK_STATUSES.includes(status as typeof BULK_TASK_STATUSES[number])) {
@@ -536,7 +605,7 @@ export async function bulkUpdateTaskStatus(taskIds: string[], status: string) {
   }
 
   const result = await prisma.task.updateMany({
-    where: { id: { in: taskIds }, project: { organizationId: user.organizationId }, deletedAt: null },
+    where: { id: { in: taskIds }, project: { organizationId: user.organizationId ?? undefined }, deletedAt: null },
     data: {
       status: status as typeof BULK_TASK_STATUSES[number],
       updatedBy: user.id,
@@ -550,7 +619,7 @@ export async function bulkUpdateTaskStatus(taskIds: string[], status: string) {
 
 export async function bulkAssignTasks(taskIds: string[], assigneeId: string) {
   const user = await getCurrentUser();
-  if (!user || !hasPermission(user.role, 'task:update')) {
+  if (!user || user.isPersonalMode || !hasPermission(user.role, 'task:update')) {
     return { success: false, error: { message: 'Permission denied' } };
   }
 
@@ -583,12 +652,12 @@ export async function bulkDeleteTasks(taskIds: string[]) {
   if (!user) return { success: false, error: { message: 'Unauthorized' } };
 
   const tasks = await prisma.task.findMany({
-    where: { id: { in: taskIds }, project: { organizationId: user.organizationId }, deletedAt: null },
+    where: { id: { in: taskIds }, project: { organizationId: user.organizationId ?? undefined }, deletedAt: null },
     select: { id: true, createdBy: true },
   });
 
   const deletableIds = tasks
-    .filter((t) => hasPermission(user.role, 'task:delete') || t.createdBy === user.id)
+    .filter((t) => user.isPersonalMode || hasPermission(user.role, 'task:delete') || t.createdBy === user.id)
     .map((t) => t.id);
   if (deletableIds.length === 0) {
     return { success: false, error: { message: 'Permission denied' } };
@@ -605,7 +674,8 @@ export async function bulkDeleteTasks(taskIds: string[]) {
 
 export async function createProject(formData: FormData) {
   const user = await getCurrentUser();
-  if (!user || !hasPermission(user.role, 'project:create')) {
+  if (!user) return { success: false, error: { message: 'Unauthorized' } };
+  if (!user.isPersonalMode && !hasPermission(user.role, 'project:create')) {
     return { success: false, error: { message: 'Permission denied' } };
   }
 
@@ -624,6 +694,7 @@ export async function createProject(formData: FormData) {
       color: parsed.data.color,
       startDate: parsed.data.startDate ? new Date(parsed.data.startDate) : null,
       endDate: parsed.data.endDate ? new Date(parsed.data.endDate) : null,
+      leadId: parsed.data.leadId ?? null,
       ownerId: user.id,
       organizationId: user.organizationId,
       createdBy: user.id,
@@ -631,10 +702,12 @@ export async function createProject(formData: FormData) {
   });
 
   try {
-    await evaluateAutomationRules(user.organizationId, 'PROJECT_CREATED', {
-      projectId: project.id,
-      userId: user.id,
-    });
+    if (user.organizationId) {
+      await evaluateAutomationRules(user.organizationId, 'PROJECT_CREATED', {
+        projectId: project.id,
+        userId: user.id,
+      });
+    }
   } catch (error) {
     console.error('Automation rule evaluation failed for PROJECT_CREATED:', error);
   }
@@ -670,6 +743,7 @@ export async function updateProject(projectId: string, formData: FormData) {
       ...(parsed.data.color !== undefined && { color: parsed.data.color }),
       ...(parsed.data.startDate !== undefined && { startDate: parsed.data.startDate ? new Date(parsed.data.startDate) : null }),
       ...(parsed.data.endDate !== undefined && { endDate: parsed.data.endDate ? new Date(parsed.data.endDate) : null }),
+      ...(parsed.data.leadId !== undefined && { leadId: parsed.data.leadId }),
       updatedBy: user.id,
     },
   });
@@ -728,7 +802,7 @@ export async function addComment(taskId: string, formData: FormData) {
       where: { id: taskId },
       include: { project: { select: { organizationId: true } } },
     });
-    if (task) {
+    if (task && task.project.organizationId) {
       await evaluateAutomationRules(task.project.organizationId, 'COMMENT_ADDED', {
         taskId: task.id,
         projectId: task.projectId,
@@ -968,7 +1042,7 @@ export async function changePassword(formData: FormData) {
 
 export async function createUser(formData: FormData) {
   const user = await getCurrentUser();
-  if (!user || !hasPermission(user.role, 'user:create')) {
+  if (!user || user.isPersonalMode || !hasPermission(user.role, 'user:create')) {
     return { success: false, error: { message: 'Permission denied' } };
   }
 
@@ -981,6 +1055,10 @@ export async function createUser(formData: FormData) {
   const bcrypt = await import('bcryptjs');
   const tempPassword = Math.random().toString(36).slice(-12);
   const passwordHash = await bcrypt.hash(tempPassword, 12);
+
+  if (!user.organizationId) {
+    return { success: false, error: { message: 'Organization required' } };
+  }
 
   const roles = await ensureSystemRolesForOrg(user.organizationId);
 
@@ -1066,8 +1144,12 @@ export async function updateNotificationPreferences(formData: FormData) {
 
 export async function updateSlackWebhook(formData: FormData) {
   const user = await getCurrentUser();
-  if (!user || !hasPermission(user.role, 'organization:update')) {
+  if (!user || user.isPersonalMode || !hasPermission(user.role, 'organization:update')) {
     return { success: false, error: { message: 'Permission denied' } };
+  }
+
+  if (!user.organizationId) {
+    return { success: false, error: { message: 'Organization required' } };
   }
 
   const raw = String(formData.get('slackWebhookUrl') ?? '').trim();

@@ -1,7 +1,7 @@
 import type { Prisma } from "@generated/prisma/client";
 import Link from "next/link";
 import { prisma } from "@/lib/database";
-import { requireRole } from "@/lib/auth";
+import { requireAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/badge";
@@ -15,13 +15,12 @@ interface PageProps {
 }
 
 export default async function ProjectsPage({ searchParams }: PageProps) {
-  const user = await requireRole('ADMINISTRATOR', 'MANAGER');
+  const user = await requireAuth();
   const params = await searchParams;
 
-  const where: Record<string, unknown> = {
-    organizationId: user.organizationId,
-    deletedAt: null,
-  };
+  const where: Record<string, unknown> = user.isPersonalMode
+    ? { isPersonal: true, ownerId: user.id, deletedAt: null }
+    : { organizationId: user.organizationId, deletedAt: null };
 
   if (params.search) {
     where.OR = [
@@ -49,7 +48,7 @@ export default async function ProjectsPage({ searchParams }: PageProps) {
     <PageTransition>
       <div className="space-y-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <h1 className="text-3xl font-bold text-text-primary">Projects</h1>
+          <h1 className="text-3xl font-bold text-text-primary">{user.isPersonalMode ? 'Personal Projects' : 'Projects'}</h1>
           <div className="flex items-center gap-3">
             <form method="GET" action="/projects" className="flex items-center gap-2">
               <SearchBar
@@ -81,9 +80,11 @@ export default async function ProjectsPage({ searchParams }: PageProps) {
               </select>
               <input type="hidden" name="search" value={params.search || ""} />
             </form>
-            <Link href="/projects/new">
-              <Button>New Project</Button>
-            </Link>
+            {!user.isPersonalMode && (
+              <Link href="/projects/new">
+                <Button>New Project</Button>
+              </Link>
+            )}
           </div>
         </div>
 

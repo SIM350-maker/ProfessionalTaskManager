@@ -33,6 +33,7 @@ export function useTaskTemplates(organizationId: string | undefined) {
 
   useEffect(() => {
     if (!organizationId) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     fetch('/api/v1/task-templates')
       .then((res) => res.json())

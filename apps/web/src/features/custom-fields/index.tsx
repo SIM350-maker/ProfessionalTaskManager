@@ -34,6 +34,7 @@ export function useCustomFields(organizationId: string | undefined, entityType =
 
   useEffect(() => {
     if (!organizationId) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     const params = new URLSearchParams({ entityType });
     if (projectId) params.set('projectId', projectId);

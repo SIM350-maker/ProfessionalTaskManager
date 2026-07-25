@@ -120,6 +120,7 @@ export const NAVIGATION_ITEMS = [
   { label: 'Notifications', href: '/notifications', roles: ['ADMINISTRATOR', 'MANAGER', 'TEAM_MEMBER'] as const },
   { label: 'Profile', href: '/profile', roles: ['ADMINISTRATOR', 'MANAGER', 'TEAM_MEMBER'] as const },
   { label: 'Settings', href: '/settings', roles: ['ADMINISTRATOR', 'MANAGER', 'TEAM_MEMBER'] as const },
+  { label: 'System Journey', href: '/guide', roles: ['ADMINISTRATOR', 'MANAGER', 'TEAM_MEMBER'] as const },
   { label: 'User Management', href: '/admin/users', roles: ['ADMINISTRATOR'] as const },
   { label: 'Organization', href: '/admin/organization', roles: ['ADMINISTRATOR'] as const },
   { label: 'Admin Dashboard', href: '/admin', roles: ['ADMINISTRATOR'] as const },

@@ -21,6 +21,7 @@ import {
   Menu,
   X,
   ChevronLeft,
+  Rocket,
 } from "lucide-react";
 import { cn, getInitials } from "@/lib/helpers";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
@@ -47,14 +48,93 @@ const iconMap: Record<string, React.ReactNode> = {
   "User Management": <ShieldCheck className="h-5 w-5" />,
   Organization: <Building2 className="h-5 w-5" />,
   "Admin Dashboard": <Shield className="h-5 w-5" />,
+  "System Journey": <Rocket className="h-5 w-5" />,
 };
+
+interface NavLinkProps {
+  item: { label: string; href: string; roles: readonly string[] };
+  pathname: string;
+  unreadNotificationCount: number;
+  isCollapsed: boolean;
+  onNavigate?: () => void;
+}
+
+function NavLink({ item, pathname, unreadNotificationCount, isCollapsed, onNavigate }: NavLinkProps) {
+  const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+  const badge = item.label === "Notifications" && unreadNotificationCount > 0 ? unreadNotificationCount : undefined;
+  const label = item.label === "Tasks" ? (TASK_LABELS[item.roles.includes("ADMINISTRATOR") ? "ADMINISTRATOR" : item.roles.includes("MANAGER") ? "MANAGER" : "TEAM_MEMBER"] ?? "Tasks") : item.label;
+
+  return (
+    <Link
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      href={item.href as any}
+      onClick={onNavigate}
+      className={cn(
+        "group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150",
+        isCollapsed && "justify-center px-2",
+        isActive
+          ? "bg-accent-blue/10 text-accent-blue"
+          : "text-text-secondary hover:bg-bg-hover hover:text-text-primary",
+      )}
+      title={isCollapsed ? label : undefined}
+    >
+      {isActive && (
+        <motion.span
+          layoutId="sidebar-active"
+          className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-full bg-accent-blue"
+        />
+      )}
+      <span className={cn("shrink-0 transition-transform group-hover:scale-110", isActive && "scale-110")}>
+        {iconMap[item.label] ?? <LayoutDashboard className="h-5 w-5" />}
+      </span>
+      {!isCollapsed && (
+        <>
+          <span className="truncate">{label}</span>
+          {badge !== undefined && (
+            <span className="ml-auto flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-accent-red px-1 text-[10px] font-bold text-white">
+              {badge > 99 ? "99+" : badge}
+            </span>
+          )}
+        </>
+      )}
+    </Link>
+  );
+}
+
+interface SectionProps {
+  items: readonly { label: string; href: string; roles: readonly string[] }[];
+  label?: string;
+  pathname: string;
+  unreadNotificationCount: number;
+  isCollapsed: boolean;
+  onNavigate?: () => void;
+}
+
+function Section({ items, label, pathname, unreadNotificationCount, isCollapsed, onNavigate }: SectionProps) {
+  if (items.length === 0) return null;
+  return (
+    <div className="mb-1">
+      {!isCollapsed && label && (
+        <p className="mb-1 px-3 text-[11px] font-semibold uppercase tracking-wider text-text-tertiary">
+          {label}
+        </p>
+      )}
+      <div className="space-y-0.5 px-2">
+        {items.map((item) => (
+          <NavLink key={item.href} item={item} pathname={pathname} unreadNotificationCount={unreadNotificationCount} isCollapsed={isCollapsed} onNavigate={onNavigate} />
+        ))}
+      </div>
+    </div>
+  );
+}
 
 interface SidebarProps {
   role: UserRole;
+  isPersonalMode: boolean;
   user: { firstName: string; lastName: string; avatarUrl?: string | null; role: UserRole };
 }
 
-export function Sidebar({ role, user }: SidebarProps) {
+export function Sidebar({ role, isPersonalMode, user }: SidebarProps) {
   const pathname = usePathname();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -78,68 +158,16 @@ export function Sidebar({ role, user }: SidebarProps) {
     );
 
   const mainItems = filteredItems(["Dashboard", "Tasks", "Projects", "Teams"]);
+  const journeyItems = filteredItems(["System Journey"]);
   const reportItems = filteredItems(["Reports", "Notifications"]);
   const profileItems = filteredItems(["Profile", "Settings"]);
   const adminItems = filteredItems(["User Management", "Organization", "Admin Dashboard"]);
 
-  function NavLink({ item }: { item: { label: string; href: string; roles: readonly string[] } }) {
-    const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
-    const badge = item.label === "Notifications" && unreadNotificationCount > 0 ? unreadNotificationCount : undefined;
-    const label = item.label === "Tasks" ? (TASK_LABELS[role] ?? "Tasks") : item.label;
+  const personalItems = filteredItems(["Dashboard", "Tasks", "Projects"]);
 
-    return (
-      <Link
-        href={item.href as any}
-        onClick={() => setIsMobileOpen(false)}
-        className={cn(
-          "group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150",
-          isCollapsed && "justify-center px-2",
-          isActive
-            ? "bg-accent-blue/10 text-accent-blue"
-            : "text-text-secondary hover:bg-bg-hover hover:text-text-primary",
-        )}
-        title={isCollapsed ? label : undefined}
-      >
-        {isActive && (
-          <motion.span
-            layoutId="sidebar-active"
-            className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-full bg-accent-blue"
-          />
-        )}
-        <span className={cn("shrink-0 transition-transform group-hover:scale-110", isActive && "scale-110")}>
-          {iconMap[item.label] ?? <LayoutDashboard className="h-5 w-5" />}
-        </span>
-        {!isCollapsed && (
-          <>
-            <span className="truncate">{label}</span>
-            {badge !== undefined && (
-              <span className="ml-auto flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-accent-red px-1 text-[10px] font-bold text-white">
-                {badge > 99 ? "99+" : badge}
-              </span>
-            )}
-          </>
-        )}
-      </Link>
-    );
-  }
-
-  function Section({ items, label }: { items: readonly { label: string; href: string; roles: readonly string[] }[]; label?: string }) {
-    if (items.length === 0) return null;
-    return (
-      <div className="mb-1">
-        {!isCollapsed && label && (
-          <p className="mb-1 px-3 text-[11px] font-semibold uppercase tracking-wider text-text-tertiary">
-            {label}
-          </p>
-        )}
-        <div className="space-y-0.5 px-2">
-          {items.map((item) => (
-            <NavLink key={item.href} item={item} />
-          ))}
-        </div>
-      </div>
-    );
-  }
+  const handleNavigate = () => {
+    setIsMobileOpen(false);
+  };
 
   return (
     <>
@@ -206,11 +234,21 @@ export function Sidebar({ role, user }: SidebarProps) {
         </div>
 
         <div className="flex-1 overflow-y-auto py-4 space-y-2">
-          <Section items={mainItems} label="Main" />
-          <Section items={reportItems} label="Reports" />
-          {!isCollapsed && <div className="mx-3 h-px bg-border-default" />}
-          <Section items={profileItems} />
-          {role === "ADMINISTRATOR" && <Section items={adminItems} label="Admin" />}
+          {isPersonalMode ? (
+            <>
+              <Section items={personalItems} label="My Workspace" pathname={pathname} unreadNotificationCount={unreadNotificationCount} isCollapsed={isCollapsed} onNavigate={handleNavigate} />
+              <Section items={profileItems} pathname={pathname} unreadNotificationCount={unreadNotificationCount} isCollapsed={isCollapsed} onNavigate={handleNavigate} />
+            </>
+          ) : (
+            <>
+              <Section items={mainItems} label="Main" pathname={pathname} unreadNotificationCount={unreadNotificationCount} isCollapsed={isCollapsed} onNavigate={handleNavigate} />
+              <Section items={journeyItems} label="Guide" pathname={pathname} unreadNotificationCount={unreadNotificationCount} isCollapsed={isCollapsed} onNavigate={handleNavigate} />
+              <Section items={reportItems} label="Reports" pathname={pathname} unreadNotificationCount={unreadNotificationCount} isCollapsed={isCollapsed} onNavigate={handleNavigate} />
+              {!isCollapsed && <div className="mx-3 h-px bg-border-default" />}
+              <Section items={profileItems} pathname={pathname} unreadNotificationCount={unreadNotificationCount} isCollapsed={isCollapsed} onNavigate={handleNavigate} />
+              {role === "ADMINISTRATOR" && <Section items={adminItems} label="Admin" pathname={pathname} unreadNotificationCount={unreadNotificationCount} isCollapsed={isCollapsed} onNavigate={handleNavigate} />}
+            </>
+          )}
         </div>
 
         <div className="border-t border-border-default p-3" ref={userDropdownRef}>

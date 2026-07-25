@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from "recharts";
-import { Card, CardHeader, CardContent } from "@/components/ui/card";
+import { BarChart, Bar, Area, AreaChart, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { Card, CardHeader } from "@/components/ui/card";
 import { cn } from "@/lib/helpers";
 
 interface ProductivityChartProps {
@@ -13,31 +13,27 @@ interface ProductivityChartProps {
 
 type ChartType = "area" | "bar";
 
-export function ProductivityChart({ data, granularity = "day", title = "Productivity" }: ProductivityChartProps) {
-  const [chartType, setChartType] = useState<ChartType>("area");
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: Array<{ value: number }>;
+  label?: string;
+}
 
-  if (!data || data.length === 0) {
+function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
+  const first = payload?.[0];
+  if (active && first) {
     return (
-      <Card>
-        <CardHeader>{title}</CardHeader>
-        <div className="flex items-center justify-center h-64 text-sm text-text-tertiary">
-          No data available
-        </div>
-      </Card>
+      <div className="rounded-lg border border-border-default bg-bg-card px-3 py-2 shadow-dropdown text-sm">
+        <p className="text-text-secondary">{label}</p>
+        <p className="font-semibold text-text-primary">{first.value} tasks completed</p>
+      </div>
     );
   }
+  return null;
+}
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="rounded-lg border border-border-default bg-bg-card px-3 py-2 shadow-dropdown text-sm">
-          <p className="text-text-secondary">{label}</p>
-          <p className="font-semibold text-text-primary">{payload[0].value} tasks completed</p>
-        </div>
-      );
-    }
-    return null;
-  };
+export function ProductivityChart({ data, granularity = "day", title = "Productivity" }: ProductivityChartProps) {
+  const [chartType, setChartType] = useState<ChartType>("area");
 
   return (
     <Card>

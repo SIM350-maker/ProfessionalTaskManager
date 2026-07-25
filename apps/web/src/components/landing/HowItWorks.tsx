@@ -39,8 +39,8 @@ const item = {
 
 export function HowItWorks() {
   return (
-    <section className="landing-section relative overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-bg-subtle to-transparent opacity-50" />
+    <section className="relative py-24 overflow-hidden bg-[#030712]">
+      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-bg-subtle/40 to-transparent" />
 
       <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <motion.div
@@ -50,14 +50,16 @@ export function HowItWorks() {
           viewport={{ once: true, margin: '-100px' }}
           transition={{ duration: 0.7 }}
         >
-          <h2 className="landing-section-title">Get started in 3 simple steps</h2>
-          <p className="landing-section-subtitle">
+          <h2 className="text-3xl sm:text-4xl font-bold text-white tracking-tight mb-4">
+            Get started in 3 simple steps
+          </h2>
+          <p className="text-white/60 max-w-2xl mx-auto">
             From sign-up to full productivity — no training required.
           </p>
         </motion.div>
 
         <motion.div
-          className="grid grid-cols-1 gap-12 sm:grid-cols-3"
+          className="timeline-track px-4"
           variants={container}
           initial="hidden"
           whileInView="show"
@@ -69,25 +71,13 @@ export function HowItWorks() {
               <motion.div
                 key={step.step}
                 variants={item}
-                className="relative text-center group"
+                className="timeline-step"
               >
-                <div className="flex justify-center mb-6">
-                  <motion.div
-                    className="landing-step-circle"
-                    whileHover={{ scale: 1.1, rotate: 5 }}
-                    transition={{ type: 'spring', stiffness: 400, damping: 10 }}
-                  >
-                    <Icon className="h-8 w-8" />
-                  </motion.div>
+                <div className="timeline-dot">
+                  <Icon className="h-5 w-5" />
                 </div>
-                <h3 className="landing-card-title text-xl mb-3 group-hover:text-accent-blue transition-colors">
-                  {step.title}
-                </h3>
-                <p className="landing-card-text max-w-sm mx-auto">{step.description}</p>
-
-                {step.step !== '3' && (
-                  <div className="hidden sm:block absolute top-12 left-[60%] w-[80%] h-0.5 bg-gradient-to-r from-accent-blue/40 to-accent-purple/40 -z-10" />
-                )}
+                <h3 className="text-lg font-semibold text-white mb-2">{step.title}</h3>
+                <p className="text-sm text-white/60 max-w-xs mx-auto leading-relaxed">{step.description}</p>
               </motion.div>
             );
           })}

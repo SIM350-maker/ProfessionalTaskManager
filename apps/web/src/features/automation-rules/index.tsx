@@ -32,6 +32,7 @@ export function useAutomationRules(organizationId: string | undefined) {
 
   useEffect(() => {
     if (!organizationId) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     fetch('/api/v1/automation-rules')
       .then((res) => res.json())

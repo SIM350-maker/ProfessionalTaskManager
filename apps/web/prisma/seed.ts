@@ -106,7 +106,7 @@ async function main() {
     }),
   );
   const userMap = new Map(createdUsers.map((u) => [u.email, u]));
-  const usersByOrg = new Map<string, typeof createdUsers>();
+  const usersByOrg = new Map<string | null, typeof createdUsers>();
   for (const u of createdUsers) {
     const list = usersByOrg.get(u.organizationId) ?? [];
     list.push(u);
@@ -144,6 +144,7 @@ async function main() {
   // ProjectMember.roleId mapping below — this is the transitional bridge from the
   // old flat User.role string to the new dynamic Role FK.
   for (const u of createdUsers) {
+    if (!u.organizationId) continue;
     const roles = roleMap.get(u.organizationId)!;
     const roleId = u.role === 'ADMINISTRATOR' ? roles.admin.id : u.role === 'MANAGER' ? roles.manager.id : roles.member.id;
     await prisma.user.update({ where: { id: u.id }, data: { roleId } });
@@ -452,7 +453,7 @@ async function main() {
       });
     }),
   );
-  const projectsByOrg = new Map<string, typeof projectRecords>();
+  const projectsByOrg = new Map<string | null, typeof projectRecords>();
   for (const p of projectRecords) {
     const list = projectsByOrg.get(p.organizationId) ?? [];
     list.push(p);
@@ -463,6 +464,7 @@ async function main() {
   // ── 6. PROJECT MEMBERS (FIXED: valid roleId) ──
   console.log('6/10 Adding project members...');
   for (const proj of projectRecords) {
+    if (!proj.organizationId) continue;
     const orgUsers = usersByOrg.get(proj.organizationId)!;
     const roles = roleMap.get(proj.organizationId)!;
     for (const u of orgUsers) {
@@ -483,7 +485,7 @@ async function main() {
   const taskRecords: Array<{ id: string; projectId: string; organizationId: string; title: string; status: string }> = [];
   for (const taskDef of seedTasks) {
     const proj = projectRecords[taskDef.projectIndex];
-    if (!proj) continue;
+    if (!proj || !proj.organizationId) continue;
     const orgUsers = usersByOrg.get(proj.organizationId)!;
     const dueDate = new Date();
     dueDate.setDate(dueDate.getDate() + taskDef.daysAhead);
@@ -572,7 +574,7 @@ async function main() {
   const allTasks = await prisma.task.findMany({ orderBy: { createdAt: 'asc' }, include: { project: true } });
   for (const commentDef of seedComments) {
     const task = allTasks[commentDef.taskIndex];
-    if (!task) continue;
+    if (!task || !task.project.organizationId) continue;
     const orgUsers = usersByOrg.get(task.project.organizationId)!;
     const author = orgUsers[commentDef.authorUserIndex % orgUsers.length] ?? orgUsers[0]!;
     const createdAt = new Date();
@@ -588,6 +590,7 @@ async function main() {
   // ATTACHMENT
   console.log('  Creating attachments...');
   for (const task of allTasks.slice(0, 10)) {
+    if (!task.project.organizationId) continue;
     const orgUsers = usersByOrg.get(task.project.organizationId)!;
     const uploader = orgUsers[0]!;
     await prisma.attachment.create({
@@ -638,6 +641,7 @@ async function main() {
   // TIME ENTRY
   console.log('  Creating time entries...');
   for (const task of allTasks.slice(0, 15)) {
+    if (!task.project.organizationId) continue;
     const orgUsers = usersByOrg.get(task.project.organizationId)!;
     const user = orgUsers[0]!;
     const startTime = new Date();
@@ -660,6 +664,7 @@ async function main() {
   // ACTIVITY LOG (comprehensive, with user attribution)
   console.log('  Creating activity logs...');
   for (const task of allTasks) {
+    if (!task.project.organizationId) continue;
     const orgUsers = usersByOrg.get(task.project.organizationId)!;
     const actor = orgUsers[0]!;
     await prisma.activityLog.create({

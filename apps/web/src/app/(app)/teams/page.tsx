@@ -1,6 +1,6 @@
 import type { Prisma } from '@generated/prisma/client';
 import { prisma } from '@/lib/database';
-import { requireRole } from '@/lib/auth';
+import { requireAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar } from '@/components/ui/avatar';
@@ -9,14 +9,19 @@ import { PageTransition } from '@/components/animations/PageTransition';
 import { StaggerList, StaggerItem } from '@/components/animations/StaggerList';
 import { EmptyState } from '@/components/ui/EmptyState';
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 
 interface PageProps {
   searchParams: Promise<{ search?: string; sort?: string }>;
 }
 
 export default async function TeamsPage({ searchParams }: PageProps) {
-  const user = await requireRole('ADMINISTRATOR', 'MANAGER');
+  const user = await requireAuth();
   const params = await searchParams;
+
+  if (user.isPersonalMode) {
+    redirect('/dashboard');
+  }
 
   const where: Record<string, unknown> = { organizationId: user.organizationId, deletedAt: null };
   if (params.search) {

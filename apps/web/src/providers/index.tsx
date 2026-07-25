@@ -19,7 +19,8 @@ interface AuthUser {
   email: string;
   firstName: string;
   lastName: string;
-  organizationId: string;
+  organizationId: string | null;
+  isPersonalMode: boolean;
   role: string;
   avatarUrl: string | null;
 }

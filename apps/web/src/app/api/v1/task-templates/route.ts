@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: { code: 'UNAUTHORIZED', message: 'Not authenticated' } }, { status: 401 });
     }
 
-    const templates = await getTaskTemplatesByOrg(user.organizationId);
+    const templates = user.organizationId ? await getTaskTemplatesByOrg(user.organizationId) : [];
 
     return NextResponse.json({ data: templates });
   } catch (error) {
@@ -28,10 +28,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const user = await getApiUser();
-    if (!user) {
-      return NextResponse.json({ success: false, error: { code: 'UNAUTHORIZED', message: 'Not authenticated' } }, { status: 401 });
-    }
-    if (!['ADMINISTRATOR', 'MANAGER'].includes(user.role)) {
+    if (!user || !user.organizationId || !['ADMINISTRATOR', 'MANAGER'].includes(user.role)) {
       return NextResponse.json({ success: false, error: { code: 'FORBIDDEN', message: 'Permission denied' } }, { status: 403 });
     }
 

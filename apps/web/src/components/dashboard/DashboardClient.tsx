@@ -19,6 +19,7 @@ import { cn, formatDate, isOverdue, getDashboardGreeting } from '@/lib/helpers';
 type DashboardData = {
   user: User;
   role: string;
+  isPersonalMode?: boolean;
   totalUsers?: number;
   totalProjects?: number;
   totalTaskCount?: number;
@@ -37,6 +38,7 @@ type DashboardData = {
   projects?: { id: string; name: string; status: string; _count: { tasks: number } }[];
   completedCount?: number;
   taskCount?: number;
+  tasks?: TaskWithRelations[];
   overdueTasks?: TaskWithRelations[];
   myActiveTasks?: TaskWithRelations[];
   completedTasks?: TaskWithRelations[];
@@ -208,7 +210,83 @@ export function DashboardClient({ data }: DashboardClientProps) {
         </>
       )}
 
-      {role === 'TEAM_MEMBER' && (
+      {data.isPersonalMode && (
+        <>
+          <div id="personal-kpi" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <KpiCard label="My Tasks" value={data.tasks?.length ?? 0} icon={<ClipboardList className="h-5 w-5" />} delay={0} />
+            <KpiCard label="Active" value={data.myActiveTasks?.length ?? 0} icon={<Activity className="h-5 w-5" />} color="text-accent-blue" delay={0.05} />
+            <KpiCard label="Overdue" value={data.overdueTasks?.length ?? 0} icon={<AlertTriangle className="h-5 w-5" />} color="text-accent-red" delay={0.1} />
+            <KpiCard label="Completed" value={data.completedTasks?.length ?? 0} icon={<CheckCircle2 className="h-5 w-5" />} color="text-accent-green" delay={0.15} />
+          </div>
+          <div id="personal-charts" className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <StatusDistribution data={data.statusData ?? []} />
+            <PriorityChart data={data.priorityData ?? []} />
+          </div>
+          <div id="personal-tasks" className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <Card variant="elevated">
+              <CardHeader>
+                <span className="flex items-center gap-2">
+                  <Activity className="h-4 w-4 text-accent-blue" />
+                  My Active Tasks
+                </span>
+              </CardHeader>
+              <CardContent>
+                {(!data.myActiveTasks || data.myActiveTasks.length === 0) ? (
+                  <p className="py-8 text-center text-sm text-text-tertiary">No active tasks. Create one to get started!</p>
+                ) : (
+                  <StaggerList className="space-y-2">
+                    {data.myActiveTasks.slice(0, 10).map((task) => (
+                      <StaggerItem key={task.id}>
+                        <LinkRow href={`/tasks/${task.id}`}>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate font-medium text-text-primary">{task.title}</p>
+                            <p className="text-sm text-text-secondary">{task.project.name}</p>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <StatusBadge status={task.status} />
+                            <PriorityBadge priority={task.priority} />
+                          </div>
+                        </LinkRow>
+                      </StaggerItem>
+                    ))}
+                  </StaggerList>
+                )}
+              </CardContent>
+            </Card>
+            <Card variant="elevated">
+              <CardHeader>
+                <span className="flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 text-accent-green" />
+                  Recent Completions
+                </span>
+              </CardHeader>
+              <CardContent>
+                {(!data.completedTasks || data.completedTasks.length === 0) ? (
+                  <p className="py-8 text-center text-sm text-text-tertiary">No completed tasks yet.</p>
+                ) : (
+                  <StaggerList className="space-y-2">
+                    {data.completedTasks.slice(0, 10).map((task) => (
+                      <StaggerItem key={task.id}>
+                        <LinkRow href={`/tasks/${task.id}`} className="items-start justify-start gap-3">
+                          <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent-green-light">
+                            <CheckCircle2 className="h-3.5 w-3.5 text-accent-green" />
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate font-medium text-text-primary">{task.title}</p>
+                            <p className="text-xs text-text-tertiary">{task.project.name} · {task.completedAt ? formatDate(task.completedAt) : ''}</p>
+                          </div>
+                        </LinkRow>
+                      </StaggerItem>
+                    ))}
+                  </StaggerList>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </>
+      )}
+
+      {role === 'TEAM_MEMBER' && !data.isPersonalMode && (
         <>
           <div id="member-kpi" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
             <KpiCard label="Total Tasks" value={data.taskCount ?? 0} icon={<ClipboardList className="h-5 w-5" />} delay={0} />
@@ -346,7 +424,7 @@ export function DashboardClient({ data }: DashboardClientProps) {
               {getDashboardGreeting(user.firstName)}
             </h1>
             <p className="mt-1 text-sm text-text-secondary">
-              {role === 'ADMINISTRATOR' ? 'Command Center · Administrator' : role === 'MANAGER' ? 'Team Lead Hub' : 'My Work'}
+              {data.isPersonalMode ? 'Personal Workspace' : role === 'ADMINISTRATOR' ? 'Command Center · Administrator' : role === 'MANAGER' ? 'Team Lead Hub' : 'My Work'}
             </p>
           </div>
         </div>

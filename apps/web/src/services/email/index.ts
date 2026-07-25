@@ -25,7 +25,6 @@ export async function sendEmail(payload: EmailPayload): Promise<void> {
   const { to, subject, html } = payload;
 
   if (!env.RESEND_API_KEY) {
-    // eslint-disable-next-line no-console
     console.info(`[Email] RESEND_API_KEY not configured — logging instead of sending.\nTo: ${to}\nSubject: ${subject}\n${html}`);
     return;
   }

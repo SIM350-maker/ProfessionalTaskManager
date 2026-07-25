@@ -13,6 +13,10 @@ export const dynamic = 'force-dynamic';
 export default async function OrganizationSettingsPage() {
   const user = await requireRole('ADMINISTRATOR');
 
+  if (!user.organizationId) {
+    return null;
+  }
+
   const [org, memberCount, projectCount] = await Promise.all([
     prisma.organization.findUnique({ where: { id: user.organizationId } }),
     prisma.user.count({ where: { organizationId: user.organizationId, isActive: true } }),
@@ -24,6 +28,9 @@ export default async function OrganizationSettingsPage() {
   const updateOrg = async (formData: FormData) => {
     'use server';
     const admin = await requireRole('ADMINISTRATOR');
+    if (!admin.organizationId) {
+      return;
+    }
     const name = formData.get('name') as string;
     const slug = formData.get('slug') as string;
     const defaultTimezone = formData.get('defaultTimezone') as string;

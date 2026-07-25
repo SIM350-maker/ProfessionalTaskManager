@@ -54,7 +54,7 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ id:
   const task = await prisma.task.findUnique({
     where: { id },
     include: {
-      project: { select: { id: true, name: true } },
+      project: { select: { id: true, name: true, lead: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } } } },
       assignees: { include: { user: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } } } },
       labels: { include: { label: true } },
       comments: {
@@ -182,6 +182,26 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ id:
                   )}
                 </div>
               </div>
+
+              {task.project.lead && (
+                <>
+                  <div className="h-px bg-border-default" />
+                  <div>
+                    <span className="text-xs font-medium uppercase tracking-wider text-text-tertiary">Project Lead</span>
+                    <div className="mt-1.5 flex items-center gap-1.5">
+                      <Avatar
+                        firstName={task.project.lead.firstName}
+                        lastName={task.project.lead.lastName}
+                        avatarUrl={task.project.lead.avatarUrl}
+                        size="sm"
+                      />
+                      <span className="text-sm text-text-secondary">
+                        {task.project.lead.firstName} {task.project.lead.lastName}
+                      </span>
+                    </div>
+                  </div>
+                </>
+              )}
 
               <div className="h-px bg-border-default" />
 

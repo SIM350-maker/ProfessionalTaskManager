@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { prisma } from '@/lib/database';
-import { requireRole } from '@/lib/auth';
+import { requireAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { StatusBadge, PriorityBadge } from '@/components/ui/badge';
@@ -19,16 +19,19 @@ interface PageProps {
 const SEVEN_DAYS_AGO = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
 export default async function ProjectDetailPage({ params, searchParams }: PageProps) {
-  const user = await requireRole('ADMINISTRATOR', 'MANAGER');
+  const user = await requireAuth();
   const { id } = await params;
   const { tab } = await searchParams;
   const activeTab = tab || 'overview';
+
+  const isPersonalProject = user.isPersonalMode;
 
   const [project, recentActivity, projectComments] = await Promise.all([
     prisma.project.findUnique({
       where: { id },
       include: {
         owner: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
+        lead: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
         members: {
           include: {
             user: { select: { id: true, firstName: true, lastName: true, avatarUrl: true, email: true } },
@@ -45,21 +48,28 @@ export default async function ProjectDetailPage({ params, searchParams }: PagePr
         },
       },
     }),
-    prisma.activityLog.findMany({
-      where: { organizationId: user.organizationId, entityType: 'TASK', createdAt: { gte: SEVEN_DAYS_AGO } },
-      include: { user: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } } },
-      orderBy: { createdAt: 'desc' },
-      take: 20,
-    }),
+    isPersonalProject
+      ? prisma.activityLog.findMany({
+          where: { userId: user.id, entityType: 'TASK', createdAt: { gte: SEVEN_DAYS_AGO } },
+          include: { user: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } } },
+          orderBy: { createdAt: 'desc' },
+          take: 20,
+        })
+      : prisma.activityLog.findMany({
+          where: { organizationId: user.organizationId, entityType: 'TASK', createdAt: { gte: SEVEN_DAYS_AGO } },
+          include: { user: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } } },
+          orderBy: { createdAt: 'desc' },
+          take: 20,
+        }),
     prisma.comment.findMany({
-      where: { task: { projectId: id, deletedAt: null }, deletedAt: null, parentCommentId: null },
-      include: { author: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } }, task: { select: { id: true, title: true } } },
+      where: { task: { projectId: id }, parentCommentId: null, deletedAt: null },
+      include: { author: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } }, task: { select: { title: true } } },
       orderBy: { createdAt: 'desc' },
       take: 10,
     }),
   ]);
 
-  if (!project || project.organizationId !== user.organizationId) {
+  if (!project || (user.isPersonalMode ? !project.isPersonal || project.ownerId !== user.id : project.organizationId !== user.organizationId)) {
     notFound();
   }
 
@@ -198,6 +208,12 @@ export default async function ProjectDetailPage({ params, searchParams }: PagePr
                   <span className="font-medium text-text-primary">Owner:</span>{' '}
                   <span className="text-text-secondary">{project.owner.firstName} {project.owner.lastName}</span>
                 </div>
+                {project.lead && (
+                  <div>
+                    <span className="font-medium text-text-primary">Lead:</span>{' '}
+                    <span className="text-text-secondary">{project.lead.firstName} {project.lead.lastName}</span>
+                  </div>
+                )}
                 {project.startDate && (
                   <div>
                     <span className="font-medium text-text-primary">Start:</span>{' '}

@@ -48,6 +48,7 @@ const TASK_PAGE_TITLES: Record<string, string> = {
   MANAGER: 'Team Tasks',
   TEAM_MEMBER: 'My Tasks',
 };
+const PERSONAL_TASK_TITLE = 'My Tasks';
 
 function InlineEditTitle({ title, taskId }: { title: string; taskId: string }) {
   const [isEditing, setIsEditing] = useState(false);
@@ -103,7 +104,8 @@ export default function TasksPage() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const role = user?.role ?? 'TEAM_MEMBER';
-  const isTeamMember = role === 'TEAM_MEMBER';
+  const isPersonalMode = user?.isPersonalMode ?? false;
+  const isTeamMember = role === 'TEAM_MEMBER' && !isPersonalMode;
   const [view, setView] = useState<ViewMode>('list');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
@@ -246,7 +248,7 @@ export default function TasksPage() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-text-primary sm:text-3xl">
-            {TASK_PAGE_TITLES[role] ?? 'Tasks'}
+            {isPersonalMode ? PERSONAL_TASK_TITLE : (TASK_PAGE_TITLES[role] ?? 'Tasks')}
           </h1>
           <div className="flex items-center gap-3">
             <div className="flex overflow-hidden rounded-lg border border-border-default">
@@ -319,49 +321,51 @@ export default function TasksPage() {
           >
             <CalendarView tasks={calendarTasks} />
           </motion.div>
-        ) : (
-          <>
-            {!isTeamMember && <TaskFilters projects={projects} />}
-            {isTeamMember && (
-              <div className="text-sm text-text-secondary">
-                Showing {tasks.length} task{tasks.length !== 1 ? 's' : ''} assigned to you
-              </div>
-            )}
-            <Card variant="elevated">
-              <CardContent className="pt-6">
-                {tasks.length === 0 ? (
-                  <EmptyState
-                    icon={<FileText className="h-12 w-12" strokeWidth={1} />}
-                    title="No tasks found"
-                    description={
-                      isTeamMember
-                        ? "You don't have any tasks assigned yet."
-                        : 'No tasks match your filters. Try adjusting them or create a new task.'
-                    }
-                    action={isTeamMember ? undefined : { label: 'New Task', href: '/tasks/new' }}
-                  />
-                ) : (
-                  <DataTable
-                    columns={taskColumns}
-                    data={tasks}
-                    getRowId={(task) => task.id}
-                    onRowClick={(task) => router.push(`/tasks/${task.id}` as Parameters<typeof router.push>[0])}
-                    getRowClassName={(task) => cn('border-l-[3px]', priorityBorder[task.priority])}
-                    rowSelection={isTeamMember ? undefined : rowSelection}
-                    onRowSelectionChange={isTeamMember ? undefined : handleRowSelectionChange}
-                  />
-                )}
-              </CardContent>
-            </Card>
-            <BulkActionBar
-              selectedCount={selectedIds.size}
-              onClear={() => setSelectedIds(new Set())}
-              onStatusChange={handleBulkStatusChange}
-              onAssign={handleBulkAssign}
-              onDelete={handleBulkDelete}
-            />
-          </>
-        )}
+          ) : (
+            <>
+              {!isTeamMember && <TaskFilters projects={projects} />}
+              {isTeamMember && (
+                <div className="text-sm text-text-secondary">
+                  Showing {tasks.length} task{tasks.length !== 1 ? 's' : ''} assigned to you
+                </div>
+              )}
+              <Card variant="elevated">
+                <CardContent className="pt-6">
+                  {tasks.length === 0 ? (
+                    <EmptyState
+                      icon={<FileText className="h-12 w-12" strokeWidth={1} />}
+                      title="No tasks found"
+                      description={
+                        isTeamMember
+                          ? "You don't have any tasks assigned yet."
+                          : 'No tasks match your filters. Try adjusting them or create a new task.'
+                      }
+                      action={isTeamMember ? undefined : { label: 'New Task', href: '/tasks/new' }}
+                    />
+                  ) : (
+                    <DataTable
+                      columns={taskColumns}
+                      data={tasks}
+                      getRowId={(task) => task.id}
+                      onRowClick={(task) => router.push(`/tasks/${task.id}` as Parameters<typeof router.push>[0])}
+                      getRowClassName={(task) => cn('border-l-[3px]', priorityBorder[task.priority])}
+                      rowSelection={isTeamMember ? undefined : rowSelection}
+                      onRowSelectionChange={isTeamMember ? undefined : handleRowSelectionChange}
+                    />
+                  )}
+                </CardContent>
+              </Card>
+              {!isTeamMember && (
+                <BulkActionBar
+                  selectedCount={selectedIds.size}
+                  onClear={() => setSelectedIds(new Set())}
+                  onStatusChange={handleBulkStatusChange}
+                  onAssign={handleBulkAssign}
+                  onDelete={handleBulkDelete}
+                />
+              )}
+            </>
+          )}
       </div>
     </PageTransition>
   );

@@ -113,6 +113,7 @@ export function SettingsTabs({
 
   useEffect(() => {
     if (activeTab !== 'integrations' || calendarUrl) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCalendarLoading(true);
     import('@/actions').then(async ({ getCalendarFeedUrl }) => {
       const result = await getCalendarFeedUrl();

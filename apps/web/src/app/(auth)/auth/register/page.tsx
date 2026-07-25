@@ -4,18 +4,21 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { User, Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { User, Mail, Lock, Eye, EyeOff, Briefcase, UserCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { PageTransition } from '@/components/animations/PageTransition';
 import { getActionErrorMessage } from '@/lib/helpers';
 
+type Mode = 'PERSONAL' | 'ORGANIZATION';
+
 export default function RegisterPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [mode, setMode] = useState<Mode>('PERSONAL');
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -23,11 +26,12 @@ export default function RegisterPage() {
     setError('');
 
     const formData = new FormData(e.currentTarget);
+    formData.set('mode', mode);
     const { registerUser } = await import('@/actions');
     const result = await registerUser(formData);
 
     if (result.success) {
-      router.push('/auth/login');
+      router.push('/dashboard');
       return;
     }
     setError(getActionErrorMessage(result.error));
@@ -35,12 +39,12 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-bg-subtle px-4">
+    <div className="flex min-h-screen items-center justify-center bg-bg-subtle px-4 py-8">
       <PageTransition className="w-full max-w-5xl">
         <Card>
           <CardHeader>
             <h1 className="text-2xl font-bold text-text-primary">Create your account</h1>
-            <p className="text-sm text-text-secondary">Start managing your team&apos;s work</p>
+            <p className="text-sm text-text-secondary">Choose how you want to use the platform</p>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -53,6 +57,32 @@ export default function RegisterPage() {
                   {error}
                 </motion.div>
               )}
+
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setMode('PERSONAL')}
+                  className={`flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition-all ${
+                    mode === 'PERSONAL' ? 'border-accent-blue bg-accent-blue-light' : 'border-border-default hover:border-accent-blue/50'
+                  }`}
+                >
+                  <UserCheck className={`h-6 w-6 ${mode === 'PERSONAL' ? 'text-accent-blue' : 'text-text-tertiary'}`} />
+                  <span className={`text-sm font-medium ${mode === 'PERSONAL' ? 'text-accent-blue' : 'text-text-primary'}`}>Personal</span>
+                  <span className="text-xs text-text-secondary">Manage my own tasks</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMode('ORGANIZATION')}
+                  className={`flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition-all ${
+                    mode === 'ORGANIZATION' ? 'border-accent-blue bg-accent-blue-light' : 'border-border-default hover:border-accent-blue/50'
+                  }`}
+                >
+                  <Briefcase className={`h-6 w-6 ${mode === 'ORGANIZATION' ? 'text-accent-blue' : 'text-text-tertiary'}`} />
+                  <span className={`text-sm font-medium ${mode === 'ORGANIZATION' ? 'text-accent-blue' : 'text-text-primary'}`}>Organization / Team</span>
+                  <span className="text-xs text-text-secondary">Collaborate with my team</span>
+                </button>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <Input label="First Name" name="firstName" required prefix={<User className="h-4 w-4" />} />
                 <Input label="Last Name" name="lastName" required prefix={<User className="h-4 w-4" />} />
@@ -84,7 +114,20 @@ export default function RegisterPage() {
                   </button>
                 }
               />
-              <Input label="Organization" name="organizationName" required placeholder="Your Company Inc." prefix={<User className="h-4 w-4" />} />
+              {mode === 'ORGANIZATION' && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                >
+                  <Input
+                    label="Organization Name"
+                    name="organizationName"
+                    required
+                    placeholder="Your Company Inc."
+                    prefix={<Briefcase className="h-4 w-4" />}
+                  />
+                </motion.div>
+              )}
               <Button type="submit" loading={loading} className="w-full">
                 Create account
               </Button>

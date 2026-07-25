@@ -227,7 +227,7 @@ export async function checkRateLimit(
     request.headers.get('x-real-ip') ||
     '127.0.0.1';
 
-  const { allowed, remaining, resetIn } = await rateLimit(getRateLimitKey(ip, action), config);
+  const { allowed, resetIn } = await rateLimit(getRateLimitKey(ip, action), config);
 
   if (!allowed) {
     return NextResponse.json(

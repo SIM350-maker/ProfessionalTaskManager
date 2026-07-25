@@ -15,6 +15,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       {user && (
         <Sidebar
           role={user.role}
+          isPersonalMode={user.isPersonalMode}
           user={{
             firstName: user.firstName,
             lastName: user.lastName,
@@ -24,7 +25,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         />
       )}
       <div className="flex flex-1 flex-col overflow-hidden lg:ml-64">
-        {user && <Header user={{ firstName: user.firstName, lastName: user.lastName, avatarUrl: user.avatarUrl, role: user.role }} />}
+        {user && <Header user={{ firstName: user.firstName, lastName: user.lastName, avatarUrl: user.avatarUrl, role: user.role, isPersonalMode: user.isPersonalMode }} />}
         <main className="flex-1 overflow-auto bg-bg-subtle">
           <div className="w-full px-6 py-8 lg:px-8">{children}</div>
         </main>

@@ -27,7 +27,12 @@ export async function GET(request: NextRequest) {
 
     const where: Record<string, unknown> = { deletedAt: null };
 
-    if (user.role === 'TEAM_MEMBER') {
+    if (user.isPersonalMode) {
+      where.OR = [
+        { project: { isPersonal: true, organizationId: null } },
+        { assignees: { some: { userId: user.id } } },
+      ];
+    } else if (user.role === 'TEAM_MEMBER') {
       where.assignees = { some: { userId: user.id } };
     } else {
       where.project = { organizationId: user.organizationId };
@@ -94,7 +99,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: { code: 'UNAUTHORIZED', message: 'Not authenticated' } }, { status: 401 });
     }
 
-    if (!['ADMINISTRATOR', 'MANAGER'].includes(user.role)) {
+    if (!['ADMINISTRATOR', 'MANAGER'].includes(user.role) && !user.isPersonalMode) {
       return NextResponse.json({ success: false, error: { code: 'FORBIDDEN', message: 'Permission denied' } }, { status: 403 });
     }
 

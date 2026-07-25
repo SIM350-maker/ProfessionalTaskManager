@@ -1,9 +1,16 @@
 import { prisma } from '@/lib/database';
-import { requireRole } from '@/lib/auth';
+import { requireAuth } from '@/lib/auth';
 import NewTaskForm from './NewTaskForm';
 
 export default async function NewTaskPage() {
-  const user = await requireRole('ADMINISTRATOR', 'MANAGER');
+  const user = await requireAuth();
+  if (user.isPersonalMode && !user.organizationId) {
+    const personalProject = await prisma.project.findFirst({
+      where: { isPersonal: true, ownerId: user.id, deletedAt: null },
+      select: { id: true, name: true },
+    });
+    return <NewTaskForm projects={personalProject ? [personalProject] : []} users={[]} organizationId={user.organizationId} />;
+  }
 
   const [projects, users] = await Promise.all([
     prisma.project.findMany({

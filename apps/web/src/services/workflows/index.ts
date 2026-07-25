@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/database';
-import type { Workflow, WorkflowState, WorkflowTransition, CustomFieldType } from '@/types';
+import type { Workflow, WorkflowState, WorkflowTransition } from '@/types';
 
 export async function getWorkflowsByOrg(organizationId: string, entityType = 'TASK'): Promise<(Workflow & { states: WorkflowState[] })[]> {
   return prisma.workflow.findMany({

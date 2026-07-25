@@ -149,7 +149,65 @@ export default async function DashboardPage() {
     });
   }
 
-  if (user.role === 'TEAM_MEMBER') {
+  if (user.isPersonalMode) {
+    const personalProject = await prisma.project.findFirst({
+      where: { isPersonal: true, ownerId: user.id, deletedAt: null },
+      select: { id: true },
+    });
+
+    const [tasks, stats, completionData, priorityStats] = await Promise.all([
+      prisma.task.findMany({
+        where: {
+          projectId: personalProject?.id,
+          deletedAt: null,
+        },
+        include: {
+          project: { select: { id: true, name: true } },
+          assignees: { include: { user: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } } } },
+        },
+        orderBy: [{ dueDate: 'asc' }, { priority: 'asc' }],
+        take: 20,
+      }),
+      prisma.task.groupBy({
+        by: ['status'],
+        where: { projectId: personalProject?.id, deletedAt: null },
+        _count: { id: true },
+      }),
+      prisma.task.findMany({
+        where: { projectId: personalProject?.id, status: 'DONE', completedAt: { gte: thirtyDaysAgo }, deletedAt: null },
+        select: { completedAt: true },
+        orderBy: { completedAt: 'asc' },
+      }),
+      prisma.task.groupBy({
+        by: ['priority'],
+        where: { projectId: personalProject?.id, deletedAt: null },
+        _count: { id: true },
+      }),
+    ]);
+
+    const overdueTasks = tasks.filter((t) => isOverdue(t.dueDate) && t.status !== 'DONE');
+    const myActiveTasks = tasks.filter((t) => t.status !== 'DONE' && t.status !== 'ARCHIVED');
+    const completedTasks = tasks.filter((t) => t.status === 'DONE');
+
+    const statusData = stats.map((s) => ({ status: s.status, count: s._count.id }));
+    const priorityData = priorityStats.map((s) => ({ priority: s.priority, count: s._count.id }));
+    const completedCount = stats.find((s) => s.status === 'DONE')?._count.id ?? 0;
+
+    const dailyCounts = new Map<string, number>();
+    for (const t of completionData) {
+      if (t.completedAt) {
+        const key = t.completedAt.toISOString().slice(0, 10);
+        dailyCounts.set(key, (dailyCounts.get(key) || 0) + 1);
+      }
+    }
+    const productivityData = Array.from(dailyCounts.entries()).map(([date, count]) => ({ date, count }));
+
+    Object.assign(baseData, {
+      tasks, statusData, priorityData, completedCount, productivityData, overdueTasks, myActiveTasks, completedTasks, isPersonalMode: true,
+    });
+  }
+
+  if (user.role === 'TEAM_MEMBER' && !user.isPersonalMode) {
     const [tasks, stats, completionData, priorityStats] = await Promise.all([
       prisma.task.findMany({
         where: { assignees: { some: { userId: user.id } }, deletedAt: null },

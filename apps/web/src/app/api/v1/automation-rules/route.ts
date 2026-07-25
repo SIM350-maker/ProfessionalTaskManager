@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: { code: 'UNAUTHORIZED', message: 'Not authenticated' } }, { status: 401 });
     }
 
-    const rules = await getAutomationRulesByOrg(user.organizationId);
+    const rules = user.organizationId ? await getAutomationRulesByOrg(user.organizationId) : [];
 
     return NextResponse.json({ data: rules });
   } catch (error) {
@@ -42,6 +42,10 @@ export async function POST(request: NextRequest) {
     const parsed = createAutomationRuleSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json({ success: false, error: parsed.error.flatten() }, { status: 422 });
+    }
+
+    if (!user.organizationId) {
+      return NextResponse.json({ success: false, error: { code: 'FORBIDDEN', message: 'Organization required' } }, { status: 403 });
     }
 
     const rule = await createAutomationRule({

@@ -59,8 +59,9 @@ async function main() {
   });
   console.log(`Backfilling roleId for ${usersWithoutRoleId.length} users`);
 
-  const rolesByOrg = new Map<string, Awaited<ReturnType<typeof ensureSystemRolesForOrg>>>();
+  const rolesByOrg = new Map<string | null, Awaited<ReturnType<typeof ensureSystemRolesForOrg>>>();
   for (const u of usersWithoutRoleId) {
+    if (!u.organizationId) continue;
     let roles = rolesByOrg.get(u.organizationId);
     if (!roles) {
       roles = await ensureSystemRolesForOrg(u.organizationId);

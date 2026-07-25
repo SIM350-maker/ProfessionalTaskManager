@@ -18,7 +18,7 @@ export default async function ReportsPage() {
   const now = new Date();
   const eightWeeksAgo = new Date(now.getTime() - 56 * 24 * 60 * 60 * 1000);
 
-  if (canViewOrgReports) {
+  if (canViewOrgReports && user.organizationId) {
     const [overdueTasks, tasksByStatus, tasksByPriority, weeklyCompletions, userStats] = await Promise.all([
       getOverdueTasksReport(user.organizationId),
       prisma.task.groupBy({

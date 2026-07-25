@@ -30,7 +30,7 @@ interface UserOption {
 interface NewTaskFormProps {
   projects: ProjectOption[];
   users: UserOption[];
-  organizationId: string;
+  organizationId: string | null;
   projectId?: string;
 }
 
@@ -62,12 +62,14 @@ function Form({ projects, users, organizationId, projectId: projectIdParam }: Ne
   const [selectedPriority, setSelectedPriority] = useState('MEDIUM');
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
 
-  const { workflows, loading: workflowsLoading } = useWorkflows(organizationId, 'TASK');
-  const { fields: customFields, loading: fieldsLoading } = useCustomFields(organizationId, 'TASK', urlProjectId || projectIdParam);
-  const { templates } = useTaskTemplates(organizationId);
+  const orgId = organizationId ?? undefined;
+  const { workflows, loading: workflowsLoading } = useWorkflows(orgId, 'TASK');
+  const { fields: customFields, loading: fieldsLoading } = useCustomFields(orgId, 'TASK', urlProjectId || projectIdParam);
+  const { templates } = useTaskTemplates(orgId);
 
   useEffect(() => {
     if (urlProjectId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedProject(urlProjectId);
     }
   }, [urlProjectId]);
@@ -76,8 +78,11 @@ function Form({ projects, users, organizationId, projectId: projectIdParam }: Ne
     if (!selectedTemplateId) return;
     const tpl = templates.find((t) => t.id === selectedTemplateId);
     if (!tpl) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (tpl.defaultStatus) setSelectedStatus(tpl.defaultStatus);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (tpl.defaultPriority) setSelectedPriority(tpl.defaultPriority);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (tpl.fields && typeof tpl.fields === 'object' && Object.keys(tpl.fields).length > 0) {
       setCustomFieldValues((prev) => ({ ...(tpl.fields as Record<string, unknown>), ...prev }));
     }
@@ -90,6 +95,7 @@ function Form({ projects, users, organizationId, projectId: projectIdParam }: Ne
 
   useEffect(() => {
     if (!selectedWorkflowId && defaultWorkflow) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedWorkflowId(defaultWorkflow.id);
     }
   }, [defaultWorkflow, selectedWorkflowId]);

@@ -1,6 +1,5 @@
 "use client";
 
-import { forwardRef } from "react";
 import * as SelectPrimitive from "@radix-ui/react-select";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/helpers";

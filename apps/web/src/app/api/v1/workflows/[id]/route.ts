@@ -23,6 +23,9 @@ export async function GET(
     }
 
     const { id } = await params;
+    if (!user.organizationId) {
+      return NextResponse.json({ success: false, error: { code: 'NOT_FOUND', message: 'Workflow not found' } }, { status: 404 });
+    }
     const workflow = await prisma.workflow.findFirst({
       where: { id, organizationId: user.organizationId, deletedAt: null },
       include: { states: { orderBy: { orderIndex: 'asc' } } },
@@ -54,6 +57,9 @@ export async function PATCH(
     if (csrfError) return csrfError;
 
     const { id } = await params;
+    if (!user.organizationId) {
+      return NextResponse.json({ success: false, error: { code: 'FORBIDDEN', message: 'Organization required' } }, { status: 403 });
+    }
     const existing = await findScopedWorkflow(id, user.organizationId);
     if (!existing) {
       return NextResponse.json({ success: false, error: { code: 'NOT_FOUND', message: 'Workflow not found' } }, { status: 404 });
@@ -89,6 +95,9 @@ export async function DELETE(
     if (csrfError) return csrfError;
 
     const { id } = await params;
+    if (!user.organizationId) {
+      return NextResponse.json({ success: false, error: { code: 'FORBIDDEN', message: 'Organization required' } }, { status: 403 });
+    }
     const existing = await findScopedWorkflow(id, user.organizationId);
     if (!existing) {
       return NextResponse.json({ success: false, error: { code: 'NOT_FOUND', message: 'Workflow not found' } }, { status: 404 });

@@ -38,13 +38,22 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
     color: string | null;
     startDate: string | null;
     endDate: string | null;
+    leadId: string | null;
   } | null>(null);
+  const [users, setUsers] = useState<{ id: string; firstName: string; lastName: string }[]>([]);
 
   useEffect(() => {
     if (!authLoading && user && user.role === 'TEAM_MEMBER') {
       router.push('/dashboard');
     }
   }, [user, authLoading, router]);
+
+  useEffect(() => {
+    fetch(`/api/v1/users/assignable`)
+      .then((r) => r.json())
+      .then((data) => setUsers(data.data || []))
+      .catch(() => setUsers([]));
+  }, []);
 
   useEffect(() => {
     fetch(`/api/v1/projects/${id}`)
@@ -60,6 +69,7 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
             color: p.color,
             startDate: p.startDate,
             endDate: p.endDate,
+            leadId: p.leadId,
           });
         }
       })
@@ -114,6 +124,15 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
             <Select label="Status" name="status" options={statusOptions} defaultValue={initial.status} />
             <Select label="Visibility" name="visibility" options={visibilityOptions} defaultValue={initial.visibility} />
             <Input label="Color" name="color" type="color" defaultValue={initial.color ?? '#6b7280'} />
+            <Select
+              label="Project Lead"
+              name="leadId"
+              options={[
+                { value: '', label: 'None' },
+                ...users.map((u) => ({ value: u.id, label: `${u.firstName} ${u.lastName}` })),
+              ]}
+              defaultValue={initial.leadId ?? ''}
+            />
             <div className="flex justify-end gap-3">
               <Button type="button" variant="outline" onClick={() => router.back()}>Cancel</Button>
               <Button type="submit" loading={loading}>Save Changes</Button>
