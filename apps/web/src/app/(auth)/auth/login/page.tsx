@@ -23,6 +23,9 @@ const DEMO_ACCOUNTS: DemoAccount[] = [
   { label: 'James Kariuki', email: 'james.kariuki@safaricom-plc.com', password: 'Pinned123!', role: 'Administrator' },
   { label: 'Faith Akinyi', email: 'faith.akinyi@equity-bank-kenya.com', password: 'Pinned123!', role: 'Manager' },
   { label: 'Daniel Kiprono', email: 'daniel.kiprono@kengen.com', password: 'Pinned123!', role: 'Team Member' },
+  { label: 'Sarah Wanjiku', email: 'sarah.wanjiku@kenya-power.co.ke', password: 'Pinned123!', role: 'Manager' },
+  { label: 'Brian Otieno', email: 'brian.otieno@kcb-group.co.ke', password: 'Pinned123!', role: 'Team Member' },
+  { label: 'Grace Muthoni', email: 'grace.muthoni@coopbank.co.ke', password: 'Pinned123!', role: 'Administrator' },
 ];
 
 const ROLE_BADGE_COLORS: Record<string, string> = {

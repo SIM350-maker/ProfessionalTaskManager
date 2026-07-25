@@ -26,6 +26,9 @@ const PINNED_CREDENTIALS: { email: string; password: string }[] = [
   { email: 'james.kariuki@safaricom-plc.com', password: 'Pinned123!' },
   { email: 'faith.akinyi@equity-bank-kenya.com', password: 'Pinned123!' },
   { email: 'daniel.kiprono@kengen.com', password: 'Pinned123!' },
+  { email: 'sarah.wanjiku@kenya-power.co.ke', password: 'Pinned123!' },
+  { email: 'brian.otieno@kcb-group.co.ke', password: 'Pinned123!' },
+  { email: 'grace.muthoni@coopbank.co.ke', password: 'Pinned123!' },
 ];
 
 const pinnedEmails = new Set(PINNED_CREDENTIALS.map((c) => c.email));
@@ -113,6 +116,36 @@ async function main() {
     usersByOrg.set(u.organizationId, list);
   }
   console.log(`  ✓ ${createdUsers.length} users (${PINNED_CREDENTIALS.length} pinned)\n`);
+
+  const extraPinned = [
+    { email: 'sarah.wanjiku@kenya-power.co.ke', firstName: 'Sarah', lastName: 'Wanjiku', role: 'MANAGER', organizationSlug: 'safaricom-plc' },
+    { email: 'brian.otieno@kcb-group.co.ke', firstName: 'Brian', lastName: 'Otieno', role: 'TEAM_MEMBER', organizationSlug: 'kcb-group' },
+    { email: 'grace.muthoni@coopbank.co.ke', firstName: 'Grace', lastName: 'Muthoni', role: 'ADMINISTRATOR', organizationSlug: 'equity-bank-kenya' },
+  ];
+
+  for (const extra of extraPinned) {
+    const org = orgMap.get(extra.organizationSlug);
+    if (!org) continue;
+    const existing = userMap.get(extra.email);
+    if (!existing) {
+      const created = await prisma.user.create({
+        data: {
+          email: extra.email,
+          firstName: extra.firstName,
+          lastName: extra.lastName,
+          passwordHash: await bcrypt.hash('Pinned123!', 12),
+          organizationId: org.id,
+          isActive: true,
+          role: extra.role,
+          emailVerifiedAt: new Date(),
+        },
+      });
+      userMap.set(created.email, created);
+      const list = usersByOrg.get(org.id) ?? [];
+      list.push(created);
+      usersByOrg.set(org.id, list);
+    }
+  }
 
   // ── 3. ROLES + PERMISSIONS ──
   // Taxonomy (permission defs + manager/member grants) lives in src/services/roles
