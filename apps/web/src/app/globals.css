@@ -1239,6 +1239,11 @@ body {
   opacity: 1;
 }
 
+.btn-primary-modern:active {
+  transform: translateY(-1px) scale(0.98);
+  box-shadow: 0 8px 20px -6px rgba(59, 130, 246, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+}
+
 .btn-secondary-modern {
   display: inline-flex;
   align-items: center;
@@ -1260,6 +1265,13 @@ body {
   border-color: rgba(255, 255, 255, 0.3);
   transform: translateY(-3px);
   box-shadow: 0 12px 30px -8px rgba(0, 0, 0, 0.4);
+}
+
+.btn-secondary-modern:active {
+  transform: translateY(-1px) scale(0.98);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: 0 6px 16px -6px rgba(0, 0, 0, 0.3);
 }
 
 /* Modern nav */

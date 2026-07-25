@@ -117,15 +117,15 @@ export function Header({ actions, user }: HeaderProps) {
             <span key={i} className="flex items-center gap-1.5">
                {i > 0 && <ChevronRight className="h-3.5 w-3.5 text-text-tertiary" />}
                  {item.href ? (
-                  <Link
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    href={item.href as any} className="text-text-secondary hover:text-text-primary transition-colors">
-                  {item.label}
-                </Link>
-              ) : (
-                <span className="font-medium text-text-primary">{item.label}</span>
-              )}
-            </span>
+                   <Link
+                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                     href={item.href as any} className="text-text-secondary hover:text-text-primary transition-colors active:opacity-70">
+                   {item.label}
+                 </Link>
+               ) : (
+                 <span className="font-medium text-text-primary">{item.label}</span>
+               )}
+             </span>
           ))}
         </nav>
       </div>
@@ -135,7 +135,7 @@ export function Header({ actions, user }: HeaderProps) {
 
         <button
           onClick={() => setCommandPaletteOpen(true)}
-          className="hidden sm:inline-flex items-center gap-2 rounded-lg border border-border-default bg-bg-subtle px-3 py-1.5 text-sm text-text-tertiary hover:border-border-hover hover:text-text-secondary transition-colors min-w-[180px]"
+          className="hidden sm:inline-flex items-center gap-2 rounded-lg border border-border-default bg-bg-subtle px-3 py-1.5 text-sm text-text-tertiary hover:border-border-hover hover:text-text-secondary transition-colors min-w-[180px] active:scale-[0.98]"
         >
           <Search className="h-4 w-4 shrink-0" />
           <span className="flex-1 text-left">Search...</span>
@@ -157,7 +157,7 @@ export function Header({ actions, user }: HeaderProps) {
         <div className="relative">
           <button
             onClick={() => setNotifDropdownOpen(!notifDropdownOpen)}
-            className="relative rounded-lg p-2 text-text-tertiary hover:bg-bg-hover hover:text-text-secondary transition-colors"
+            className="relative rounded-lg p-2 text-text-tertiary hover:bg-bg-hover hover:text-text-secondary transition-colors active:scale-95"
             aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ""}`}
           >
             <Bell className="h-5 w-5" />
@@ -232,7 +232,7 @@ export function Header({ actions, user }: HeaderProps) {
           <div className="relative" ref={dropdownRef}>
             <button
               onClick={() => setDropdownOpen(!dropdownOpen)}
-              className="flex items-center gap-2 border-l border-border-default pl-3 sm:pl-4 hover:opacity-80 transition-opacity"
+              className="flex items-center gap-2 border-l border-border-default pl-3 sm:pl-4 hover:opacity-80 transition-opacity active:opacity-70"
             >
               <div className="hidden text-right sm:block">
                 <p className="text-sm font-medium text-text-primary">{user.firstName} {user.lastName}</p>
@@ -255,22 +255,22 @@ export function Header({ actions, user }: HeaderProps) {
                     <p className="truncate text-sm font-medium text-text-primary">{user.firstName} {user.lastName}</p>
                     <p className="truncate text-xs text-text-tertiary">{user.role.replace("_", " ")}</p>
                   </div>
-                  <Link href="/profile" onClick={() => setDropdownOpen(false)} className="flex items-center gap-2 px-4 py-2 text-sm text-text-primary hover:bg-bg-hover transition-colors">
+                  <Link href="/profile" onClick={() => setDropdownOpen(false)} className="flex items-center gap-2 px-4 py-2 text-sm text-text-primary hover:bg-bg-hover active:bg-bg-hover/60 transition-colors">
                     <User className="h-4 w-4" /> Profile
                   </Link>
-                  <Link href="/settings" onClick={() => setDropdownOpen(false)} className="flex items-center gap-2 px-4 py-2 text-sm text-text-primary hover:bg-bg-hover transition-colors">
+                  <Link href="/settings" onClick={() => setDropdownOpen(false)} className="flex items-center gap-2 px-4 py-2 text-sm text-text-primary hover:bg-bg-hover active:bg-bg-hover/60 transition-colors">
                     <SettingsIcon className="h-4 w-4" /> Settings
                   </Link>
                   <button
                     type="button"
                     onClick={() => { setDropdownOpen(false); setShortcutsOpen(true); }}
-                    className="flex w-full items-center gap-2 px-4 py-2 text-sm text-text-primary hover:bg-bg-hover transition-colors"
+                    className="flex w-full items-center gap-2 px-4 py-2 text-sm text-text-primary hover:bg-bg-hover active:bg-bg-hover/60 transition-colors"
                   >
                     <Keyboard className="h-4 w-4" /> Keyboard Shortcuts
                   </button>
                   <div className="mx-3 my-1 h-px bg-border-default" />
                   <form action={logoutUser}>
-                    <button type="submit" className="flex w-full items-center gap-2 px-4 py-2 text-sm text-accent-red hover:bg-bg-hover transition-colors">
+                    <button type="submit" className="flex w-full items-center gap-2 px-4 py-2 text-sm text-accent-red hover:bg-bg-hover active:bg-bg-hover/60 transition-colors">
                       <LogOut className="h-4 w-4" /> Sign out
                     </button>
                   </form>

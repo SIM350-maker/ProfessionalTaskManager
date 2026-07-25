@@ -70,7 +70,7 @@ function NavLink({ item, pathname, unreadNotificationCount, isCollapsed, onNavig
       href={item.href as any}
       onClick={onNavigate}
       className={cn(
-        "group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150",
+        "group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150 active:scale-[0.98]",
         isCollapsed && "justify-center px-2",
         isActive
           ? "bg-accent-blue/10 text-accent-blue"
@@ -216,7 +216,7 @@ export function Sidebar({ role, isPersonalMode, user }: SidebarProps) {
           {!isCollapsed && (
             <button
               onClick={() => setIsCollapsed(true)}
-              className="ml-auto rounded-lg p-1.5 text-text-tertiary hover:bg-bg-hover hover:text-text-secondary transition-colors hidden lg:block"
+              className="ml-auto rounded-lg p-1.5 text-text-tertiary hover:bg-bg-hover hover:text-text-secondary transition-colors active:scale-95 hidden lg:block"
               aria-label="Collapse sidebar"
             >
               <ChevronLeft className="h-4 w-4" />
@@ -225,7 +225,7 @@ export function Sidebar({ role, isPersonalMode, user }: SidebarProps) {
           {isCollapsed && (
             <button
               onClick={() => setIsCollapsed(false)}
-              className="rounded-lg p-1.5 text-text-tertiary hover:bg-bg-hover hover:text-text-secondary transition-colors hidden lg:block mt-2"
+              className="rounded-lg p-1.5 text-text-tertiary hover:bg-bg-hover hover:text-text-secondary transition-colors active:scale-95 hidden lg:block mt-2"
               aria-label="Expand sidebar"
             >
               <Menu className="h-4 w-4" />
@@ -256,7 +256,7 @@ export function Sidebar({ role, isPersonalMode, user }: SidebarProps) {
             <div className="relative">
               <button
                 onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors hover:bg-bg-hover"
+                className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors hover:bg-bg-hover active:bg-bg-hover/60"
               >
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-blue-light text-xs font-semibold text-accent-blue">
                   {getInitials(user.firstName, user.lastName)}
@@ -279,15 +279,15 @@ export function Sidebar({ role, isPersonalMode, user }: SidebarProps) {
                     transition={{ duration: 0.15 }}
                     className="absolute bottom-full left-0 right-0 mb-2 rounded-xl border border-border-default bg-bg-card py-1 shadow-dropdown"
                   >
-                    <Link href="/profile" onClick={() => setUserDropdownOpen(false)} className="flex items-center gap-2 px-3 py-2 text-sm text-text-primary hover:bg-bg-hover">
+                    <Link href="/profile" onClick={() => setUserDropdownOpen(false)} className="flex items-center gap-2 px-3 py-2 text-sm text-text-primary hover:bg-bg-hover active:bg-bg-hover/60 transition-colors">
                       <User className="h-4 w-4" /> Profile
                     </Link>
-                    <Link href="/settings" onClick={() => setUserDropdownOpen(false)} className="flex items-center gap-2 px-3 py-2 text-sm text-text-primary hover:bg-bg-hover">
+                    <Link href="/settings" onClick={() => setUserDropdownOpen(false)} className="flex items-center gap-2 px-3 py-2 text-sm text-text-primary hover:bg-bg-hover active:bg-bg-hover/60 transition-colors">
                       <Settings className="h-4 w-4" /> Settings
                     </Link>
                     <div className="mx-3 my-1 h-px bg-border-default" />
                     <form action={logoutUser}>
-                      <button type="submit" className="flex w-full items-center gap-2 px-3 py-2 text-sm text-accent-red hover:bg-bg-hover">
+                      <button type="submit" className="flex w-full items-center gap-2 px-3 py-2 text-sm text-accent-red hover:bg-bg-hover active:bg-bg-hover/60 transition-colors">
                         <LogOut className="h-4 w-4" /> Sign out
                       </button>
                     </form>
@@ -297,7 +297,7 @@ export function Sidebar({ role, isPersonalMode, user }: SidebarProps) {
             </div>
           ) : (
             <div className="flex flex-col items-center gap-2">
-              <button onClick={() => setUserDropdownOpen(!userDropdownOpen)} className="relative" title={`${user.firstName} ${user.lastName}`}>
+              <button onClick={() => setUserDropdownOpen(!userDropdownOpen)} className="relative active:scale-95 transition-transform" title={`${user.firstName} ${user.lastName}`}>
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-accent-blue-light text-xs font-semibold text-accent-blue">
                   {getInitials(user.firstName, user.lastName)}
                 </div>

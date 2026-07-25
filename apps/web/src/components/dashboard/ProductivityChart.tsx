@@ -42,13 +42,13 @@ export function ProductivityChart({ data, granularity = "day", title = "Producti
         <div className="flex rounded-lg border border-border-default overflow-hidden">
           <button
             onClick={() => setChartType("area")}
-            className={cn("px-3 py-1 text-xs font-medium transition-colors", chartType === "area" ? "bg-accent-blue text-white" : "bg-bg-card text-text-secondary hover:bg-bg-hover")}
+            className={cn("px-3 py-1 text-xs font-medium transition-all active:scale-95", chartType === "area" ? "bg-accent-blue text-white" : "bg-bg-card text-text-secondary hover:bg-bg-hover")}
           >
             Area
           </button>
           <button
             onClick={() => setChartType("bar")}
-            className={cn("px-3 py-1 text-xs font-medium transition-colors", chartType === "bar" ? "bg-accent-blue text-white" : "bg-bg-card text-text-secondary hover:bg-bg-hover")}
+            className={cn("px-3 py-1 text-xs font-medium transition-all active:scale-95", chartType === "bar" ? "bg-accent-blue text-white" : "bg-bg-card text-text-secondary hover:bg-bg-hover")}
           >
             Bar
           </button>

@@ -73,7 +73,7 @@ export function DashboardGrid({ children, storageKey }: DashboardGridProps) {
           type="button"
           onClick={() => setIsCustomizing(!isCustomizing)}
           className={cn(
-            'rounded-lg px-3 py-1.5 text-xs font-medium transition-colors',
+            'rounded-lg px-3 py-1.5 text-xs font-medium transition-all active:scale-95',
             isCustomizing ? 'bg-accent-blue text-white' : 'border border-border-default text-text-secondary hover:bg-bg-hover',
           )}
         >

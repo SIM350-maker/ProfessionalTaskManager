@@ -256,7 +256,7 @@ export default function TasksPage() {
                 type="button"
                 onClick={() => setView('list')}
                 className={cn(
-                  'px-3 py-2 text-sm font-medium transition-colors flex items-center gap-1.5',
+                  'px-3 py-2 text-sm font-medium transition-all flex items-center gap-1.5 active:scale-95',
                   view === 'list'
                     ? 'bg-accent-blue text-white'
                     : 'bg-bg-card text-text-secondary hover:bg-bg-hover',
@@ -270,7 +270,7 @@ export default function TasksPage() {
                   type="button"
                   onClick={() => setView('board')}
                   className={cn(
-                    'px-3 py-2 text-sm font-medium transition-colors flex items-center gap-1.5',
+                    'px-3 py-2 text-sm font-medium transition-all flex items-center gap-1.5 active:scale-95',
                     view === 'board'
                       ? 'bg-accent-blue text-white'
                       : 'bg-bg-card text-text-secondary hover:bg-bg-hover',
@@ -284,7 +284,7 @@ export default function TasksPage() {
                 type="button"
                 onClick={() => setView('calendar')}
                 className={cn(
-                  'px-3 py-2 text-sm font-medium transition-colors flex items-center gap-1.5',
+                  'px-3 py-2 text-sm font-medium transition-all flex items-center gap-1.5 active:scale-95',
                   view === 'calendar'
                     ? 'bg-accent-blue text-white'
                     : 'bg-bg-card text-text-secondary hover:bg-bg-hover',

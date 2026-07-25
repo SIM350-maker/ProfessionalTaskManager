@@ -31,7 +31,7 @@ export function Card({ className, hover, variant = "default", padding = "md", ch
         "rounded-xl transition-all duration-[var(--duration-normal)]",
         variantStyles[variant],
         paddingStyles[padding],
-        hover && "cursor-pointer hover:shadow-hover hover:-translate-y-0.5",
+        hover && "cursor-pointer hover:shadow-hover hover:-translate-y-0.5 active:scale-[0.98] active:shadow-hover",
         className,
       )}
       {...props}

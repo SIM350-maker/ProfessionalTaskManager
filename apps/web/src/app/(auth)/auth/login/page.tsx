@@ -243,7 +243,7 @@ function LoginPageInner() {
           <button
             type="button"
             onClick={() => setShowDemo(!showDemo)}
-            className="text-sm font-medium text-text-secondary hover:text-text-primary transition-colors"
+            className="text-sm font-medium text-text-secondary hover:text-text-primary transition-colors active:opacity-70"
           >
             <span className="inline-flex items-center gap-1">
               Demo credentials
@@ -263,7 +263,7 @@ function LoginPageInner() {
                     key={account.email}
                     type="button"
                     onClick={() => fillCredentials(account)}
-                    className="flex w-full items-center justify-between rounded-lg border border-border-subtle px-3 py-2.5 transition-colors hover:border-accent-blue hover:bg-accent-blue-light/40"
+                    className="flex w-full items-center justify-between rounded-lg border border-border-subtle px-3 py-2.5 transition-colors hover:border-accent-blue hover:bg-accent-blue-light/40 active:scale-[0.98] active:bg-accent-blue-light/60"
                   >
                     <div>
                       <div className="text-sm font-medium text-text-primary">{account.label}</div>
