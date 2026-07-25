@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, Suspense, type ChangeEvent } from 'react';
+import { useState, useEffect, Suspense, type ChangeEvent } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mail, Lock, Eye, EyeOff, ChevronDown, Shield, Fingerprint, Globe, Code2, Apple } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, ChevronDown, Shield, Fingerprint, Globe, Code2, Monitor } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -53,6 +53,14 @@ function LoginPageInner() {
   const [showPassword, setShowPassword] = useState(false);
   const [showDemo, setShowDemo] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [configuredProviders, setConfiguredProviders] = useState<string[]>([]);
+
+  useEffect(() => {
+    fetch('/api/v1/auth/providers')
+      .then((res) => res.json())
+      .then((data) => setConfiguredProviders(data.providers ?? []))
+      .catch(() => setConfiguredProviders([]));
+  }, []);
 
   function fillCredentials(account: DemoAccount) {
     setEmail(account.email);
@@ -121,26 +129,36 @@ function LoginPageInner() {
 
         <StaggerItem>
           <Card variant="elevated" padding="lg">
-            <div className="space-y-3">
-              <SocialLoginButton provider="google" icon={<Globe className="h-4 w-4" />}>
-                Continue with Google
-              </SocialLoginButton>
-              <SocialLoginButton provider="github" icon={<Code2 className="h-4 w-4" />}>
-                Continue with GitHub
-              </SocialLoginButton>
-              <SocialLoginButton provider="microsoft" icon={<Apple className="h-4 w-4" />}>
-                Continue with Microsoft
-              </SocialLoginButton>
-            </div>
+            {configuredProviders.length > 0 && (
+              <div className="space-y-3">
+                {configuredProviders.includes('google') && (
+                  <SocialLoginButton provider="google" icon={<Globe className="h-4 w-4" />}>
+                    Continue with Google
+                  </SocialLoginButton>
+                )}
+                {configuredProviders.includes('github') && (
+                  <SocialLoginButton provider="github" icon={<Code2 className="h-4 w-4" />}>
+                    Continue with GitHub
+                  </SocialLoginButton>
+                )}
+                {configuredProviders.includes('microsoft') && (
+                  <SocialLoginButton provider="microsoft" icon={<Monitor className="h-4 w-4" />}>
+                    Continue with Microsoft
+                  </SocialLoginButton>
+                )}
+              </div>
+            )}
 
-            <div className="relative my-6">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-border-default" />
+            {configuredProviders.length > 0 && (
+              <div className="relative my-6">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-border-default" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-bg-card px-3 text-text-tertiary">Or continue with email</span>
+                </div>
               </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-bg-card px-3 text-text-tertiary">Or continue with email</span>
-              </div>
-            </div>
+            )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <AnimatePresence>
