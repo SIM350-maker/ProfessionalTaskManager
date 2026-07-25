@@ -1,3 +1,4 @@
+import { Resend } from 'resend';
 import { env } from '@/lib/config/env';
 
 type EmailPayload = {
@@ -6,27 +7,38 @@ type EmailPayload = {
   html: string;
 };
 
+let resendClient: Resend | null = null;
+
+function getResendClient(): Resend {
+  if (!resendClient) {
+    resendClient = new Resend(env.RESEND_API_KEY);
+  }
+  return resendClient;
+}
+
+/**
+ * Sends an email via Resend when RESEND_API_KEY is configured. Without it, logs the
+ * email to the console instead of sending — lets auth/notification flows run end-to-end
+ * in local dev without requiring a real provider key.
+ */
 export async function sendEmail(payload: EmailPayload): Promise<void> {
   const { to, subject, html } = payload;
 
-  const emailApiUrl = env.EMAIL_API_URL;
-
-  if (!emailApiUrl) {
-    if (process.env.NODE_ENV === 'development') {
-      // eslint-disable-next-line no-console
-      console.info(`[Email Service] Development mode — email not sent. To: ${to}, Subject: ${subject}`);
-    }
+  if (!env.RESEND_API_KEY) {
+    // eslint-disable-next-line no-console
+    console.info(`[Email] RESEND_API_KEY not configured — logging instead of sending.\nTo: ${to}\nSubject: ${subject}\n${html}`);
     return;
   }
 
-  const response = await fetch(emailApiUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ to, subject, html }),
+  const { error } = await getResendClient().emails.send({
+    from: env.EMAIL_FROM ?? 'Professional Task Manager <onboarding@resend.dev>',
+    to,
+    subject,
+    html,
   });
 
-  if (!response.ok) {
-    throw new Error(`Email send failed: ${response.statusText}`);
+  if (error) {
+    throw new Error(`Email send failed: ${error.message}`);
   }
 }
 

@@ -12,26 +12,6 @@ import { BarChart3, PieChart, TrendingUp, AlertTriangle, CheckCircle, Clock, Act
 
 export const dynamic = 'force-dynamic';
 
-function exportCSV(data: Record<string, unknown>[], name: string) {
-  if (!data || data.length === 0) return;
-  const headers = Object.keys(data[0] ?? {});
-  const csv = [
-    headers.join(','),
-    ...data.map((row) => headers.map((h) => JSON.stringify(row[h] ?? '')).join(',')),
-  ].join('\n');
-  const blob = new Blob([csv], { type: 'text/csv' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${name}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-function exportPDF() {
-  window.print();
-}
-
 export default async function ReportsPage() {
   const user = await requireAuth();
   const canViewOrgReports = hasPermission(user.role, 'report:view');
@@ -112,7 +92,7 @@ export default async function ReportsPage() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <ExportButton onExport={(format) => format === 'csv' ? exportCSV([...barChartData, ...donutChartData], 'reports') : exportPDF()} />
+              <ExportButton data={[...barChartData, ...donutChartData]} filename="reports" />
             </div>
           </div>
 
@@ -292,7 +272,10 @@ export default async function ReportsPage() {
               <p className="text-sm text-text-secondary">Your personal task statistics</p>
             </div>
           </div>
-          <ExportButton onExport={(format) => format === 'csv' ? exportCSV(myTasks.map(t => ({ title: t.title, status: t.status, priority: t.priority })), 'my-reports') : exportPDF()} />
+          <ExportButton
+            data={myTasks.map((t) => ({ title: t.title, status: t.status, priority: t.priority }))}
+            filename="my-reports"
+          />
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">

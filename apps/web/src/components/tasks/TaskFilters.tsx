@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
-import { Search, ChevronDown, ArrowUpDown } from 'lucide-react';
+import { Search, ChevronDown, ArrowUpDown, Bookmark, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/helpers';
+import { useSavedFilterViews } from '@/features/tasks/useSavedFilterViews';
 import type { TaskStatus, Priority } from '@/types';
 
 interface TaskFiltersProps {
@@ -168,6 +169,39 @@ export function TaskFilters({ projects }: TaskFiltersProps) {
 
   const hasFilters = search || statuses.length > 0 || priorities.length > 0 || projectId || sortBy !== 'createdAt' || sortOrder !== 'desc';
 
+  const { views, saveView, deleteView } = useSavedFilterViews();
+  const [viewsOpen, setViewsOpen] = useState(false);
+  const [savingName, setSavingName] = useState<string | null>(null);
+  const viewsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (viewsRef.current && !viewsRef.current.contains(e.target as Node)) {
+        setViewsOpen(false);
+        setSavingName(null);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  function applyView(view: { params: { search: string; statuses: string[]; priorities: string[]; projectId: string; sortBy: string; sortOrder: string } }) {
+    setSearch(view.params.search);
+    setStatuses(view.params.statuses);
+    setPriorities(view.params.priorities);
+    setProjectId(view.params.projectId);
+    setSortBy(view.params.sortBy);
+    setSortOrder(view.params.sortOrder);
+    setViewsOpen(false);
+  }
+
+  function handleSaveView() {
+    const name = savingName?.trim();
+    if (!name) return;
+    saveView(name, { search, statuses, priorities, projectId, sortBy, sortOrder });
+    setSavingName(null);
+  }
+
   return (
     <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border-default bg-bg-card p-4">
       <div className="relative flex-1 min-w-[200px] max-w-sm">
@@ -223,6 +257,74 @@ export function TaskFilters({ projects }: TaskFiltersProps) {
           Reset
         </button>
       )}
+
+      <div ref={viewsRef} className="relative">
+        <button
+          type="button"
+          onClick={() => setViewsOpen(!viewsOpen)}
+          className="flex items-center gap-1.5 rounded-lg border border-border-default bg-bg-card px-3 py-2 text-sm text-text-secondary transition-colors hover:border-border-hover hover:text-text-primary"
+        >
+          <Bookmark className="h-4 w-4" />
+          Views
+          <ChevronDown className="h-4 w-4" />
+        </button>
+        {viewsOpen && (
+          <div className="absolute right-0 z-50 mt-1 w-64 rounded-lg border border-border-default bg-bg-card py-1 shadow-dropdown">
+            {views.length === 0 && (
+              <p className="px-3 py-2 text-sm text-text-tertiary">No saved views yet.</p>
+            )}
+            {views.map((view) => (
+              <div key={view.id} className="flex items-center justify-between px-1">
+                <button
+                  type="button"
+                  onClick={() => applyView(view)}
+                  className="flex-1 truncate rounded-md px-2 py-2 text-left text-sm text-text-primary hover:bg-bg-hover"
+                >
+                  {view.name}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => deleteView(view.id)}
+                  className="rounded-md p-2 text-text-tertiary hover:bg-accent-red-light hover:text-accent-red"
+                  aria-label={`Delete view ${view.name}`}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))}
+            <div className="mx-2 my-1 border-t border-border-default" />
+            {savingName !== null ? (
+              <div className="flex items-center gap-1.5 px-2 py-1.5">
+                <input
+                  autoFocus
+                  type="text"
+                  value={savingName}
+                  onChange={(e) => setSavingName(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleSaveView(); }}
+                  placeholder="View name..."
+                  className="w-full rounded-md border border-border-default bg-bg-card px-2 py-1.5 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-accent-blue/30"
+                />
+                <button
+                  type="button"
+                  onClick={handleSaveView}
+                  className="shrink-0 rounded-md bg-accent-blue px-2 py-1.5 text-xs font-medium text-white hover:bg-accent-blue-hover"
+                >
+                  Save
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setSavingName('')}
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-accent-blue hover:bg-bg-hover"
+              >
+                <Bookmark className="h-3.5 w-3.5" />
+                Save current filters as...
+              </button>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

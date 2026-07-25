@@ -47,6 +47,8 @@ export async function getUserProductivityStats(userId: string): Promise<Producti
         deletedAt: null,
       },
       select: { createdAt: true, completedAt: true },
+      orderBy: { completedAt: 'desc' },
+      take: 500,
     }),
     prisma.task.count({
       where: {

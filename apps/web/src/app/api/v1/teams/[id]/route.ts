@@ -82,6 +82,15 @@ export async function DELETE(
     }
 
     const { id } = await params;
+
+    const team = await prisma.team.findFirst({
+      where: { id, organizationId: user.organizationId, deletedAt: null },
+    });
+
+    if (!team) {
+      return NextResponse.json({ success: false, error: { code: 'NOT_FOUND', message: 'Team not found' } }, { status: 404 });
+    }
+
     const { deleteTeam } = await import('@/actions');
     const result = await deleteTeam(id);
 

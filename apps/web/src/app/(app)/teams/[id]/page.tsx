@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/database';
 import { requireRole } from '@/lib/auth';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Avatar } from '@/components/ui/avatar';
+import { TeamMembersManager } from '@/components/teams/TeamMembersManager';
 
 export default async function TeamDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireRole('ADMINISTRATOR', 'MANAGER');
@@ -23,6 +23,13 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ id:
     notFound();
   }
 
+  const memberIds = new Set(team.members.map((m) => m.userId));
+  const availableUsers = await prisma.user.findMany({
+    where: { organizationId: user.organizationId, deletedAt: null, isActive: true, id: { notIn: [...memberIds] } },
+    select: { id: true, firstName: true, lastName: true, email: true },
+    orderBy: { firstName: 'asc' },
+  });
+
   return (
     <div className="space-y-6">
       <div>
@@ -35,21 +42,11 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ id:
           <h2 className="text-lg font-semibold text-text-primary">Members ({team.members.length})</h2>
         </CardHeader>
         <CardContent>
-          {team.members.length === 0 ? (
-            <p className="text-sm text-text-secondary">No members yet.</p>
-          ) : (
-            <div className="divide-y">
-              {team.members.map((member) => (
-                <div key={member.userId} className="flex items-center gap-3 py-3">
-                  <Avatar {...member.user} size="sm" />
-                  <div>
-                    <p className="text-sm font-medium text-text-primary">{member.user.firstName} {member.user.lastName}</p>
-                    <p className="text-xs text-text-secondary">{member.user.email}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          <TeamMembersManager
+            teamId={team.id}
+            members={team.members}
+            availableUsers={availableUsers}
+          />
         </CardContent>
       </Card>
     </div>

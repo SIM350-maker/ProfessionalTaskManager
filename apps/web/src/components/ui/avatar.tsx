@@ -2,6 +2,7 @@
 
 import { cn, getInitials, getInitialsColor } from "@/lib/helpers";
 import { forwardRef } from "react";
+import Image from "next/image";
 
 const sizes = {
   sm: "h-7 w-7 text-[10px]",
@@ -37,11 +38,15 @@ export const Avatar = forwardRef<HTMLDivElement, AvatarProps>(
     return (
       <div ref={ref} className={cn("relative inline-flex shrink-0", className)} {...props}>
         {imgSrc ? (
-          <img
-            src={imgSrc}
-            alt={`${firstName} ${lastName}`}
-            className={cn("rounded-full object-cover", sizes[size])}
-          />
+          <span className={cn("relative block overflow-hidden rounded-full", sizes[size])}>
+            <Image
+              src={imgSrc}
+              alt={`${firstName} ${lastName}`}
+              fill
+              unoptimized
+              className="object-cover"
+            />
+          </span>
         ) : (
           <div className={cn("flex items-center justify-center rounded-full font-semibold", sizes[size], colorClass)}>
             {initials || "?"}

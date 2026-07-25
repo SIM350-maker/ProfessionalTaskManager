@@ -4,6 +4,7 @@ import type { NextRequest } from 'next/server';
 import { prisma } from '@/lib/database';
 import { getApiUser, handleApiError } from '@/lib/api-auth';
 import { checkRateLimit } from '@/lib/security/rate-limiter';
+import { createTimeEntrySchema } from '@/lib/validation';
 
 export async function GET(request: NextRequest) {
   const rateLimited = await checkRateLimit(request, 'time-entries:list');
@@ -78,14 +79,11 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { taskId, startTime, endTime, description } = body;
-
-    if (!taskId || !startTime) {
-      return NextResponse.json({
-        success: false,
-        error: { code: 'VALIDATION_ERROR', message: 'Missing required fields: taskId, startTime' },
-      }, { status: 422 });
+    const parsed = createTimeEntrySchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ success: false, error: parsed.error.flatten() }, { status: 422 });
     }
+    const { taskId, startTime, endTime, description } = parsed.data;
 
     const entry = await prisma.timeEntry.create({
       data: {

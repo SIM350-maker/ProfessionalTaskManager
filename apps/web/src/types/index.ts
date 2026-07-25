@@ -73,8 +73,12 @@ export interface SessionUser {
   firstName: string;
   lastName: string;
   organizationId: string;
+  /** @deprecated legacy 3-value role, superseded by roleId/roleName/permissions — kept during the RBAC migration */
   role: UserRole;
   avatarUrl: string | null;
+  roleId: string | null;
+  roleName: string | null;
+  permissions: string[];
 }
 
 export interface PaginationMeta {

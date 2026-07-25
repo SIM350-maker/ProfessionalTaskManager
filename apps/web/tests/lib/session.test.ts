@@ -75,6 +75,8 @@ describe('validateSession', () => {
         organizationId: 'org-1',
         avatarUrl: null,
         role: 'TEAM_MEMBER',
+        isActive: true,
+        deletedAt: null,
       },
     });
 
@@ -88,6 +90,58 @@ describe('validateSession', () => {
       avatarUrl: null,
       role: 'TEAM_MEMBER',
     });
+  });
+
+  it('returns null and deletes the session for a deactivated user', async () => {
+    const { validateSession } = await import('@/lib/session');
+    const future = new Date();
+    future.setFullYear(future.getFullYear() + 1);
+    mockPrisma.session.findUnique.mockResolvedValue({
+      id: 'session-1',
+      token: 'valid-token',
+      expiresAt: future,
+      user: {
+        id: 'user-1',
+        email: 'test@test.com',
+        firstName: 'John',
+        lastName: 'Doe',
+        organizationId: 'org-1',
+        avatarUrl: null,
+        role: 'TEAM_MEMBER',
+        isActive: false,
+        deletedAt: null,
+      },
+    });
+
+    const result = await validateSession('valid-token');
+    expect(result).toBeNull();
+    expect(mockPrisma.session.delete).toHaveBeenCalledWith({ where: { id: 'session-1' } });
+  });
+
+  it('returns null and deletes the session for a soft-deleted user', async () => {
+    const { validateSession } = await import('@/lib/session');
+    const future = new Date();
+    future.setFullYear(future.getFullYear() + 1);
+    mockPrisma.session.findUnique.mockResolvedValue({
+      id: 'session-1',
+      token: 'valid-token',
+      expiresAt: future,
+      user: {
+        id: 'user-1',
+        email: 'test@test.com',
+        firstName: 'John',
+        lastName: 'Doe',
+        organizationId: 'org-1',
+        avatarUrl: null,
+        role: 'TEAM_MEMBER',
+        isActive: true,
+        deletedAt: new Date('2026-01-01'),
+      },
+    });
+
+    const result = await validateSession('valid-token');
+    expect(result).toBeNull();
+    expect(mockPrisma.session.delete).toHaveBeenCalledWith({ where: { id: 'session-1' } });
   });
 });
 

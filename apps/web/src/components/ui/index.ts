@@ -7,4 +7,4 @@ export { Modal } from "./modal";
 export { Skeleton, SkeletonList } from "./skeleton";
 export { Avatar, AvatarGroup } from "./avatar";
 export { ProgressBar, ProgressRing } from "./progress";
-export { EmptyState } from "./empty-state";
+export { EmptyState } from "./EmptyState";

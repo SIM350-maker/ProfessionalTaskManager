@@ -5,6 +5,7 @@ import { getApiUser, handleApiError } from '@/lib/api-auth';
 import { checkRateLimit } from '@/lib/security/rate-limiter';
 import { getWorkflowsByOrg, createWorkflow, updateWorkflow, deleteWorkflow } from '@/services/workflows';
 import { createWorkflowSchema } from '@/lib/validation';
+import { requireCsrfToken } from '@/lib/security/csrf';
 
 export async function GET(request: NextRequest) {
   const rateLimited = await checkRateLimit(request, 'workflows:list');
@@ -33,6 +34,12 @@ export async function POST(request: NextRequest) {
     if (!user) {
       return NextResponse.json({ success: false, error: { code: 'UNAUTHORIZED', message: 'Not authenticated' } }, { status: 401 });
     }
+    if (!['ADMINISTRATOR', 'MANAGER'].includes(user.role)) {
+      return NextResponse.json({ success: false, error: { code: 'FORBIDDEN', message: 'Permission denied' } }, { status: 403 });
+    }
+
+    const csrfError = await requireCsrfToken(request);
+    if (csrfError) return csrfError;
 
     const body = await request.json();
     const parsed = createWorkflowSchema.safeParse(body);

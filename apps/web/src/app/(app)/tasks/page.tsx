@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useState, useMemo, useEffect, useRef } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
+import type { ColumnDef, RowSelectionState } from '@tanstack/react-table';
 import { cn } from '@/lib/helpers';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -12,15 +13,19 @@ import { StatusBadge, PriorityBadge } from '@/components/ui/badge';
 import { AvatarGroup } from '@/components/ui/avatar';
 import { formatDate, isOverdue } from '@/lib/helpers';
 import { PageTransition } from '@/components/animations/PageTransition';
-import { StaggerList, StaggerItem } from '@/components/animations/StaggerList';
 import { TaskFilters } from '@/components/tasks/TaskFilters';
+import { BulkActionBar } from '@/components/tasks/BulkActionBar';
 import { KanbanBoard } from '@/components/tasks/KanbanBoard';
 import { CalendarView } from '@/components/projects/CalendarView';
 import { Skeleton } from '@/components/ui/skeleton';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { DataTable, createSelectionColumn } from '@/components/ui/data-table';
 import { useAuth } from '@/providers';
 import { updateTaskStatus, updateTask } from '@/actions';
-import { FileText, LayoutGrid, List, Calendar as CalendarIcon, Check, X } from 'lucide-react';
+import { FileText, LayoutGrid, List, Calendar as CalendarIcon } from 'lucide-react';
 import type { TaskWithRelations, TaskStatus, Priority } from '@/types';
+
+const PRIORITY_RANK: Record<Priority, number> = { LOW: 0, MEDIUM: 1, HIGH: 2, URGENT: 3 };
 
 function fetchJSON<T>(url: string): Promise<{ data: T }> {
   return fetch(url).then((res) => {
@@ -69,10 +74,12 @@ function InlineEditTitle({ title, taskId }: { title: string; taskId: string }) {
       <input
         ref={inputRef}
         value={value}
+        disabled={saving}
+        onClick={(e) => e.stopPropagation()}
         onChange={(e) => setValue(e.target.value)}
         onBlur={save}
         onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') { setValue(title); setIsEditing(false); } }}
-        className="rounded-md border border-accent-blue bg-bg-card px-2 py-0.5 text-sm font-medium text-text-primary focus:outline-none focus:ring-1 focus:ring-accent-blue/30"
+        className="rounded-md border border-accent-blue bg-bg-card px-2 py-0.5 text-sm font-medium text-text-primary focus:outline-none focus:ring-1 focus:ring-accent-blue/30 disabled:opacity-50"
       />
     );
   }
@@ -80,7 +87,7 @@ function InlineEditTitle({ title, taskId }: { title: string; taskId: string }) {
   return (
     <button
       type="button"
-      onClick={() => setIsEditing(true)}
+      onClick={(e) => { e.stopPropagation(); setIsEditing(true); }}
       className="group flex items-center gap-1 rounded-md px-1 -mx-1 text-left hover:bg-bg-hover transition-colors"
       title="Click to edit"
     >
@@ -92,11 +99,13 @@ function InlineEditTitle({ title, taskId }: { title: string; taskId: string }) {
 
 export default function TasksPage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const role = user?.role ?? 'TEAM_MEMBER';
   const isTeamMember = role === 'TEAM_MEMBER';
   const [view, setView] = useState<ViewMode>('list');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const queryString = useMemo(() => {
     const params = new URLSearchParams(searchParams.toString());
@@ -132,6 +141,95 @@ export default function TasksPage() {
 
   function handleStatusChange(taskId: string, newStatus: TaskStatus) {
     statusMutation.mutate({ taskId, newStatus });
+  }
+
+  const rowSelection = useMemo<RowSelectionState>(() => {
+    const obj: RowSelectionState = {};
+    selectedIds.forEach((id) => { obj[id] = true; });
+    return obj;
+  }, [selectedIds]);
+
+  function handleRowSelectionChange(next: RowSelectionState) {
+    setSelectedIds(new Set(Object.keys(next).filter((id) => next[id])));
+  }
+
+  const taskColumns = useMemo<ColumnDef<TaskWithRelations, unknown>[]>(() => {
+    const cols: ColumnDef<TaskWithRelations, unknown>[] = [];
+    if (!isTeamMember) cols.push(createSelectionColumn<TaskWithRelations>());
+    cols.push(
+      {
+        accessorKey: 'title',
+        header: 'Task',
+        cell: ({ row }) => {
+          const task = row.original;
+          return (
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <InlineEditTitle title={task.title} taskId={task.id} />
+                {isOverdue(task.dueDate) && task.status !== 'DONE' && (
+                  <span className="rounded bg-accent-red-light px-1.5 py-0.5 text-xs font-medium text-accent-red">
+                    Overdue
+                  </span>
+                )}
+              </div>
+              <p className="mt-1 text-sm text-text-secondary">{task.project.name}</p>
+              <div className="mt-2">
+                <AvatarGroup users={task.assignees.map((a) => a.user)} size="sm" max={4} />
+              </div>
+            </div>
+          );
+        },
+      },
+      {
+        accessorKey: 'priority',
+        header: 'Priority',
+        sortingFn: (a, b) => PRIORITY_RANK[a.original.priority] - PRIORITY_RANK[b.original.priority],
+        cell: ({ row }) => <PriorityBadge priority={row.original.priority} />,
+      },
+      {
+        accessorKey: 'status',
+        header: 'Status',
+        cell: ({ row }) => <StatusBadge status={row.original.status} />,
+      },
+      {
+        accessorKey: 'dueDate',
+        header: 'Due Date',
+        cell: ({ row }) => {
+          const task = row.original;
+          if (!task.dueDate) return null;
+          return (
+            <span className={cn(
+              'text-sm whitespace-nowrap',
+              isOverdue(task.dueDate) && task.status !== 'DONE' ? 'font-medium text-accent-red' : 'text-text-secondary',
+            )}>
+              {formatDate(task.dueDate)}
+            </span>
+          );
+        },
+      },
+    );
+    return cols;
+  }, [isTeamMember]);
+
+  async function handleBulkStatusChange(status: string) {
+    const { bulkUpdateTaskStatus } = await import('@/actions');
+    await bulkUpdateTaskStatus([...selectedIds], status);
+    setSelectedIds(new Set());
+    queryClient.invalidateQueries({ queryKey: ['tasks'] });
+  }
+
+  async function handleBulkAssign(assigneeId: string) {
+    const { bulkAssignTasks } = await import('@/actions');
+    await bulkAssignTasks([...selectedIds], assigneeId);
+    setSelectedIds(new Set());
+    queryClient.invalidateQueries({ queryKey: ['tasks'] });
+  }
+
+  async function handleBulkDelete() {
+    const { bulkDeleteTasks } = await import('@/actions');
+    await bulkDeleteTasks([...selectedIds]);
+    setSelectedIds(new Set());
+    queryClient.invalidateQueries({ queryKey: ['tasks'] });
   }
 
   const calendarTasks = useMemo(() => tasks.map((t) => ({
@@ -232,60 +330,36 @@ export default function TasksPage() {
             <Card variant="elevated">
               <CardContent className="pt-6">
                 {tasks.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-16">
-                    <FileText className="mb-3 h-12 w-12 text-text-tertiary" strokeWidth={1} />
-                    <p className="text-sm text-text-tertiary">No tasks found.</p>
-                  </div>
+                  <EmptyState
+                    icon={<FileText className="h-12 w-12" strokeWidth={1} />}
+                    title="No tasks found"
+                    description={
+                      isTeamMember
+                        ? "You don't have any tasks assigned yet."
+                        : 'No tasks match your filters. Try adjusting them or create a new task.'
+                    }
+                    action={isTeamMember ? undefined : { label: 'New Task', href: '/tasks/new' }}
+                  />
                 ) : (
-                  <StaggerList className="space-y-2">
-                    {tasks.map((task) => (
-                      <StaggerItem key={task.id}>
-                        <Link
-                          href={`/tasks/${task.id}`}
-                          className={cn(
-                            'flex items-center justify-between rounded-lg border border-border-default p-4 transition-all duration-[var(--duration-fast)] hover:bg-bg-hover border-l-[3px] group',
-                            priorityBorder[task.priority],
-                          )}
-                        >
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2">
-                              <InlineEditTitle title={task.title} taskId={task.id} />
-                              {isOverdue(task.dueDate) && task.status !== 'DONE' && (
-                                <motion.span
-                                  initial={{ scale: 0.8, opacity: 0 }}
-                                  animate={{ scale: 1, opacity: 1 }}
-                                  className="rounded bg-accent-red-light px-1.5 py-0.5 text-xs font-medium text-accent-red"
-                                >
-                                  Overdue
-                                </motion.span>
-                              )}
-                            </div>
-                            <p className="mt-1 text-sm text-text-secondary">{task.project.name}</p>
-                            <div className="mt-2">
-                              <AvatarGroup users={task.assignees.map((a) => a.user)} size="sm" max={4} />
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <PriorityBadge priority={task.priority} />
-                            <StatusBadge status={task.status} />
-                            {task.dueDate && (
-                              <span className={cn(
-                                'text-sm whitespace-nowrap transition-colors',
-                                isOverdue(task.dueDate) && task.status !== 'DONE'
-                                  ? 'font-medium text-accent-red'
-                                  : 'text-text-secondary',
-                              )}>
-                                {formatDate(task.dueDate)}
-                              </span>
-                            )}
-                          </div>
-                        </Link>
-                      </StaggerItem>
-                    ))}
-                  </StaggerList>
+                  <DataTable
+                    columns={taskColumns}
+                    data={tasks}
+                    getRowId={(task) => task.id}
+                    onRowClick={(task) => router.push(`/tasks/${task.id}` as Parameters<typeof router.push>[0])}
+                    getRowClassName={(task) => cn('border-l-[3px]', priorityBorder[task.priority])}
+                    rowSelection={isTeamMember ? undefined : rowSelection}
+                    onRowSelectionChange={isTeamMember ? undefined : handleRowSelectionChange}
+                  />
                 )}
               </CardContent>
             </Card>
+            <BulkActionBar
+              selectedCount={selectedIds.size}
+              onClear={() => setSelectedIds(new Set())}
+              onStatusChange={handleBulkStatusChange}
+              onAssign={handleBulkAssign}
+              onDelete={handleBulkDelete}
+            />
           </>
         )}
       </div>

@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, type ChangeEvent } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, Suspense, type ChangeEvent } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, Lock, Eye, EyeOff, ChevronDown, Shield, Fingerprint, Globe, Code2, Apple } from 'lucide-react';
@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { SocialLoginButton } from '@/components/ui/social-login';
 import { MfaForm } from '@/components/auth/mfa-form';
+import { StaggerList, StaggerItem } from '@/components/animations/StaggerList';
 
 type DemoAccount = {
   label: string;
@@ -32,28 +33,21 @@ const ROLE_BADGE_COLORS: Record<string, string> = {
 
 type LoginStep = 'credentials' | 'mfa';
 
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.06, delayChildren: 0.1 },
-  },
+const OAUTH_ERROR_MESSAGES: Record<string, string> = {
+  oauth_not_configured: 'This sign-in method is not yet set up.',
+  oauth_state_mismatch: 'Sign-in session expired. Please try again.',
+  oauth_failed: 'Sign-in failed. Please try again or use email/password.',
 };
 
-const itemVariants = {
-  hidden: { opacity: 0, y: 16 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.45, ease: 'easeOut' as const },
-  },
-};
-
-export default function LoginPage() {
+function LoginPageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [step, setStep] = useState<LoginStep>('credentials');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(() => {
+    const oauthError = searchParams.get('error');
+    return oauthError ? (OAUTH_ERROR_MESSAGES[oauthError] ?? 'Sign-in failed. Please try again.') : '';
+  });
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -116,21 +110,16 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-bg-subtle px-4 py-8 sm:px-6 lg:px-8">
-      <motion.div
-        className="mx-auto w-full max-w-xl"
-        variants={containerVariants}
-        initial="hidden"
-        animate="visible"
-      >
-        <motion.div variants={itemVariants} className="text-center mb-8">
+      <StaggerList className="mx-auto w-full max-w-xl" staggerDelay={0.06}>
+        <StaggerItem className="text-center mb-8">
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-accent-blue to-accent-purple text-white shadow-lg">
             <Fingerprint className="h-6 w-6" />
           </div>
           <h1 className="text-3xl font-bold text-text-primary mb-2">Sign in</h1>
           <p className="text-sm text-text-secondary">Welcome back to Professional Task Manager</p>
-        </motion.div>
+        </StaggerItem>
 
-        <motion.div variants={itemVariants}>
+        <StaggerItem>
           <Card variant="elevated" padding="lg">
             <div className="space-y-3">
               <SocialLoginButton provider="google" icon={<Globe className="h-4 w-4" />}>
@@ -227,9 +216,9 @@ export default function LoginPage() {
               </p>
             </div>
           </Card>
-        </motion.div>
+        </StaggerItem>
 
-        <motion.div variants={itemVariants} className="mt-4 text-center">
+        <StaggerItem className="mt-4 text-center">
           <button
             type="button"
             onClick={() => setShowDemo(!showDemo)}
@@ -267,9 +256,9 @@ export default function LoginPage() {
               </motion.div>
             )}
           </AnimatePresence>
-        </motion.div>
+        </StaggerItem>
 
-        <motion.div variants={itemVariants} className="mt-6 text-center">
+        <StaggerItem className="mt-6 text-center">
           <button
             type="button"
             onClick={() => setStep('mfa')}
@@ -278,9 +267,9 @@ export default function LoginPage() {
             <Shield className="h-3 w-3" />
             Use MFA instead
           </button>
-        </motion.div>
+        </StaggerItem>
 
-        <motion.div variants={itemVariants} className="mt-8">
+        <StaggerItem className="mt-8">
           <Card variant="elevated" padding="md">
             <div className="flex items-start gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-accent-blue-light text-accent-blue">
@@ -294,8 +283,16 @@ export default function LoginPage() {
               </div>
             </div>
           </Card>
-        </motion.div>
-      </motion.div>
+        </StaggerItem>
+      </StaggerList>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginPageInner />
+    </Suspense>
   );
 }

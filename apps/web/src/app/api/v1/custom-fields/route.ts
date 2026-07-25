@@ -3,6 +3,8 @@ import type { NextRequest } from 'next/server';
 import { getApiUser, handleApiError } from '@/lib/api-auth';
 import { checkRateLimit } from '@/lib/security/rate-limiter';
 import { getCustomFieldsByOrg, createCustomField, updateCustomField, deleteCustomField } from '@/services/custom-fields';
+import { requireCsrfToken } from '@/lib/security/csrf';
+import { createCustomFieldSchema } from '@/lib/validation';
 
 export async function GET(request: NextRequest) {
   const rateLimited = await checkRateLimit(request, 'customFields:list');
@@ -33,10 +35,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: { code: 'FORBIDDEN', message: 'Permission denied' } }, { status: 403 });
     }
 
+    const csrfError = await requireCsrfToken(request);
+    if (csrfError) return csrfError;
+
     const body = await request.json();
+    const parsed = createCustomFieldSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ success: false, error: parsed.error.flatten() }, { status: 422 });
+    }
 
     const field = await createCustomField({
-      ...body,
+      ...parsed.data,
       organizationId: user.organizationId,
     });
 

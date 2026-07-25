@@ -10,7 +10,6 @@ import { PageTransition } from '@/components/animations/PageTransition';
 import { StaggerList, StaggerItem } from '@/components/animations/StaggerList';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { revalidatePath } from 'next/cache';
-import { NotificationsRefresh } from '@/features/notifications/NotificationsRefresh';
 import { Bell, Eye, CheckCheck, Inbox, Filter } from 'lucide-react';
 
 interface PageProps {
@@ -42,7 +41,6 @@ export default async function NotificationsPage({ searchParams }: PageProps) {
 
   return (
     <PageTransition>
-      <NotificationsRefresh intervalMs={20000} />
       <div className="space-y-6">
         <div className="flex items-center gap-3">
           <Bell className="h-7 w-7 text-text-secondary" />

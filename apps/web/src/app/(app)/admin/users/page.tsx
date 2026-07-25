@@ -2,33 +2,19 @@ import { prisma } from '@/lib/database';
 import { requireRole } from '@/lib/auth';
 import type { Prisma } from '@generated/prisma/client';
 import { Card, CardContent } from '@/components/ui/card';
-import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { SearchBar } from '@/components/ui/search';
 import { PageTransition } from '@/components/animations/PageTransition';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { formatDateTime, maskEmail } from '@/lib/helpers';
-import { deactivateUser } from '@/actions';
-import { revalidatePath } from 'next/cache';
-import { Shield, Users, UserCheck, UserX, Search, Activity } from 'lucide-react';
+import { UsersTable } from '@/components/admin/UsersTable';
+import { formatDateTime } from '@/lib/helpers';
+import { Shield, Search, Activity } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
 interface PageProps {
   searchParams: Promise<{ search?: string; status?: string; role?: string; sort?: string; logSearch?: string }>;
 }
-
-const roleBadgeVariant: Record<string, 'primary' | 'warning' | 'default'> = {
-  ADMINISTRATOR: 'primary',
-  MANAGER: 'warning',
-  TEAM_MEMBER: 'default',
-};
-
-const roleIcon: Record<string, typeof Shield> = {
-  ADMINISTRATOR: Shield,
-  MANAGER: Users,
-  TEAM_MEMBER: UserCheck,
-};
 
 export default async function AdminUsersPage({ searchParams }: PageProps) {
   const user = await requireRole('ADMINISTRATOR');
@@ -139,100 +125,7 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
                 description={params.search ? 'Try a different search term or filter' : 'No users in this organization yet'}
               />
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border-default text-left">
-                      <th className="pb-3 font-medium text-text-secondary">User</th>
-                      <th className="pb-3 font-medium text-text-secondary">Email</th>
-                      <th className="pb-3 font-medium text-text-secondary">Role</th>
-                      <th className="pb-3 font-medium text-text-secondary">Status</th>
-                      <th className="pb-3 font-medium text-text-secondary">Last Login</th>
-                      <th className="pb-3 font-medium text-text-secondary">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {users.map((u) => {
-                      const RoleIcon = roleIcon[u.role] || Shield;
-                      return (
-                        <tr
-                          key={u.id}
-                          className="border-b border-border-default transition-colors hover:bg-bg-hover"
-                        >
-                          <td className="py-3">
-                            <div className="flex items-center gap-3">
-                              <Avatar
-                                firstName={u.firstName}
-                                lastName={u.lastName}
-                                avatarUrl={u.avatarUrl}
-                                size="sm"
-                                status={u.isActive ? 'online' : 'offline'}
-                              />
-                              <div>
-                                <span className="font-medium text-text-primary">
-                                  {u.firstName} {u.lastName}
-                                </span>
-                                {u.id === user.id && (
-                                  <span className="ml-2 text-xs text-text-tertiary">(you)</span>
-                                )}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="py-3">
-                            <span className="text-text-secondary" title={u.email}>
-                              {maskEmail(u.email)}
-                            </span>
-                          </td>
-                          <td className="py-3">
-                            <Badge variant={roleBadgeVariant[u.role] || 'default'}>
-                              <RoleIcon className="mr-1 inline h-3 w-3" />
-                              {u.role.replace('_', ' ')}
-                            </Badge>
-                          </td>
-                          <td className="py-3">
-                            <span
-                              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                                u.isActive
-                                  ? 'bg-accent-green-light text-accent-green'
-                                  : 'bg-accent-red-light text-accent-red'
-                              }`}
-                            >
-                              <span
-                                className={`h-1.5 w-1.5 rounded-full ${
-                                  u.isActive ? 'bg-accent-green' : 'bg-accent-red'
-                                }`}
-                              />
-                              {u.isActive ? 'Active' : 'Inactive'}
-                            </span>
-                          </td>
-                          <td className="py-3 text-text-secondary">
-                            {u.lastLoginAt ? formatDateTime(u.lastLoginAt) : 'Never'}
-                          </td>
-                          <td className="py-3">
-                            {u.isActive && u.id !== user.id && (
-                              <form
-                                action={async () => {
-                                  'use server';
-                                  await deactivateUser(u.id);
-                                  revalidatePath('/admin/users');
-                                }}
-                              >
-                                <button
-                                  type="submit"
-                                  className="inline-flex items-center gap-1 text-sm font-medium text-accent-red transition-colors hover:text-accent-red-hover"
-                                >
-                                  <UserX className="h-3.5 w-3.5" />
-                                  Deactivate
-                                </button>
-                              </form>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+              <UsersTable users={users} currentUserId={user.id} />
             )}
           </CardContent>
         </Card>

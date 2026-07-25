@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server';
 import { prisma } from '@/lib/database';
 import { getApiUser, handleApiError } from '@/lib/api-auth';
 import { checkRateLimit } from '@/lib/security/rate-limiter';
+import { createLabelSchema } from '@/lib/validation';
 
 export async function GET(request: NextRequest) {
   const rateLimited = await checkRateLimit(request, 'labels:list');
@@ -34,14 +35,11 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, color } = body;
-
-    if (!name) {
-      return NextResponse.json({
-        success: false,
-        error: { code: 'VALIDATION_ERROR', message: 'Label name is required' },
-      }, { status: 422 });
+    const parsed = createLabelSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ success: false, error: parsed.error.flatten() }, { status: 422 });
     }
+    const { name, color } = parsed.data;
 
     const existing = await prisma.label.findFirst({
       where: { name, organizationId: user.organizationId, deletedAt: null },

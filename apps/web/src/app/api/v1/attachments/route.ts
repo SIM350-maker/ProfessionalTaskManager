@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server';
 import { prisma } from '@/lib/database';
 import { getApiUser, handleApiError } from '@/lib/api-auth';
 import { checkRateLimit } from '@/lib/security/rate-limiter';
+import { createAttachmentSchema } from '@/lib/validation';
 
 export async function POST(request: NextRequest) {
   const rateLimited = await checkRateLimit(request, 'attachments:upload');
@@ -15,14 +16,11 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { filename, originalName, mimeType, size, url, taskId, commentId } = body;
-
-    if (!filename || !originalName || !mimeType || !size || !url || !taskId) {
-      return NextResponse.json({
-        success: false,
-        error: { code: 'VALIDATION_ERROR', message: 'Missing required fields: filename, originalName, mimeType, size, url, taskId' },
-      }, { status: 422 });
+    const parsed = createAttachmentSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ success: false, error: parsed.error.flatten() }, { status: 422 });
     }
+    const { filename, originalName, mimeType, size, url, taskId, commentId } = parsed.data;
 
     const attachment = await prisma.attachment.create({
       data: {

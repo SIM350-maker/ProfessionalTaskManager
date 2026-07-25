@@ -7,6 +7,7 @@ import { users as rawUsers } from './seed-data/users';
 import { projects as seedProjects } from './seed-data/projects';
 import { tasks as seedTasks } from './seed-data/tasks';
 import { comments as seedComments } from './seed-data/comments';
+import { SYSTEM_PERMISSION_DEFS, MANAGER_PERMISSION_KEYS, MEMBER_PERMISSION_KEYS } from '../src/services/roles';
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) throw new Error('DATABASE_URL is required');
@@ -114,30 +115,10 @@ async function main() {
   console.log(`  ✓ ${createdUsers.length} users (${PINNED_CREDENTIALS.length} pinned)\n`);
 
   // ── 3. ROLES + PERMISSIONS ──
+  // Taxonomy (permission defs + manager/member grants) lives in src/services/roles
+  // as the single source of truth shared with real signups (registerUser, OAuth).
   console.log('3/10 Creating roles & permissions...');
-  const permDefs = [
-    { name: 'Task Create', resource: 'task', action: 'create' },
-    { name: 'Task Update', resource: 'task', action: 'update' },
-    { name: 'Task Delete', resource: 'task', action: 'delete' },
-    { name: 'Project Create', resource: 'project', action: 'create' },
-    { name: 'Project Update', resource: 'project', action: 'update' },
-    { name: 'Project Delete', resource: 'project', action: 'delete' },
-    { name: 'User Read', resource: 'user', action: 'read' },
-    { name: 'User Create', resource: 'user', action: 'create' },
-    { name: 'User Deactivate', resource: 'user', action: 'deactivate' },
-    { name: 'Report View', resource: 'report', action: 'view' },
-    { name: 'Team Create', resource: 'team', action: 'create' },
-    { name: 'Team Update', resource: 'team', action: 'update' },
-    { name: 'Team Delete', resource: 'team', action: 'delete' },
-    { name: 'Organization Read', resource: 'organization', action: 'read' },
-    { name: 'Organization Update', resource: 'organization', action: 'update' },
-    { name: 'Label Create', resource: 'label', action: 'create' },
-    { name: 'Label Delete', resource: 'label', action: 'delete' },
-    { name: 'Workflow Manage', resource: 'workflow', action: 'manage' },
-    { name: 'Custom Field Manage', resource: 'customField', action: 'manage' },
-    { name: 'Automation Manage', resource: 'automation', action: 'manage' },
-    { name: 'Template Manage', resource: 'template', action: 'manage' },
-  ];
+  const permDefs = SYSTEM_PERMISSION_DEFS;
 
   const roleMap = new Map<string, { admin: Prisma.RoleGetPayload<object>; manager: Prisma.RoleGetPayload<object>; member: Prisma.RoleGetPayload<object> }>();
 
@@ -150,14 +131,23 @@ async function main() {
     const memberRole = await prisma.role.create({ data: { name: 'Team Member', description: 'Task execution and collaboration', organizationId: org.id, isSystem: true } });
 
     const adminPermKeys = permDefs.map((p) => `${p.resource}:${p.action}`);
-    const managerPermKeys = ['task:create', 'task:update', 'project:create', 'project:update', 'report:view', 'team:update', 'label:create'];
 
     await Promise.all(adminPermKeys.map((k) => prisma.rolePermission.create({ data: { roleId: adminRole.id, permissionId: permById.get(k)!.id } })));
-    await Promise.all(managerPermKeys.map((k) => prisma.rolePermission.create({ data: { roleId: managerRole.id, permissionId: permById.get(k)!.id } })));
+    await Promise.all(MANAGER_PERMISSION_KEYS.map((k) => prisma.rolePermission.create({ data: { roleId: managerRole.id, permissionId: permById.get(k)!.id } })));
+    await Promise.all(MEMBER_PERMISSION_KEYS.map((k) => prisma.rolePermission.create({ data: { roleId: memberRole.id, permissionId: permById.get(k)!.id } })));
 
     roleMap.set(org.id, { admin: adminRole, manager: managerRole, member: memberRole });
   }
   console.log('  ✓ Roles & permissions created\n');
+
+  // Backfill each user's roleId from their legacy role string, mirroring the
+  // ProjectMember.roleId mapping below — this is the transitional bridge from the
+  // old flat User.role string to the new dynamic Role FK.
+  for (const u of createdUsers) {
+    const roles = roleMap.get(u.organizationId)!;
+    const roleId = u.role === 'ADMINISTRATOR' ? roles.admin.id : u.role === 'MANAGER' ? roles.manager.id : roles.member.id;
+    await prisma.user.update({ where: { id: u.id }, data: { roleId } });
+  }
 
   // ── 3b. WORKFLOWS + STATES + TRANSITIONS ──
   console.log('3b/10 Creating workflows...');

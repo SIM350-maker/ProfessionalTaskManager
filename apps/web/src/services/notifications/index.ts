@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/database';
 import { sendEmail, buildTaskAssignmentEmail, buildDueDateReminderEmail, buildTaskCompletedEmail } from '@/services/email';
+import { sendSlackNotification } from '@/services/integrations/slack';
 
 type NotificationType = 'TASK_ASSIGNED' | 'TASK_COMPLETED' | 'DUE_DATE_REMINDER' | 'TASK_REASSIGNED' | 'COMMENT_ADDED';
 
@@ -71,12 +72,26 @@ export async function notifyTaskCompleted(
   completedByUser: string,
   completedById: string,
   managerUserIds: string[],
+  organizationId?: string,
 ): Promise<void> {
+  if (organizationId) {
+    await sendSlackNotification(organizationId, `:white_check_mark: *${taskTitle}* was completed by ${completedByUser}`);
+  }
+
+  if (managerUserIds.length === 0) return;
+
   const actionUrl = `/tasks/${taskId}`;
 
+  const [prefsList, users] = await Promise.all([
+    prisma.userPreferences.findMany({ where: { userId: { in: managerUserIds } } }),
+    prisma.user.findMany({ where: { id: { in: managerUserIds } }, select: { id: true, email: true } }),
+  ]);
+  const prefsByUserId = new Map(prefsList.map((p) => [p.userId, p]));
+  const usersById = new Map(users.map((u) => [u.id, u]));
+
   for (const userId of managerUserIds) {
-    const prefs = await prisma.userPreferences.findUnique({ where: { userId } });
-    const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+    const prefs = prefsByUserId.get(userId);
+    const user = usersById.get(userId);
     if (!user) continue;
 
     if (prefs?.notificationInAppEnabled ?? true) {

@@ -1,9 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
 import { Users, FolderKanban, ClipboardList, Activity, AlertTriangle, CheckCircle2, Clock, TrendingUp, ArrowUpRight } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { LinkRow } from '@/components/ui/link-row';
 import { StatusBadge, PriorityBadge } from '@/components/ui/badge';
 import { PageTransition } from '@/components/animations/PageTransition';
 import { StaggerList, StaggerItem } from '@/components/animations/StaggerList';
@@ -14,7 +13,7 @@ import { CompletionRate } from '@/components/dashboard/CompletionRate';
 import { PriorityChart } from '@/components/dashboard/PriorityChart';
 import { ProjectProgress } from '@/components/dashboard/ProjectProgress';
 import { DashboardGrid } from '@/components/dashboard/DashboardGrid.client';
-import type { User, TaskWithRelations, ProjectWithRelations } from '@/types';
+import type { User, TaskWithRelations } from '@/types';
 import { cn, formatDate, isOverdue, getDashboardGreeting } from '@/lib/helpers';
 
 type DashboardData = {
@@ -110,10 +109,10 @@ export function DashboardClient({ data }: DashboardClientProps) {
                       const daysOverdue = task.dueDate ? Math.floor((now.getTime() - new Date(task.dueDate).getTime()) / (1000 * 60 * 60 * 24)) : 0;
                       return (
                         <StaggerItem key={task.id}>
-                          <a
+                          <LinkRow
                             href={`/tasks/${task.id}`}
                             className={cn(
-                              'flex items-center justify-between rounded-lg border border-border-default p-3 transition-colors hover:bg-bg-hover border-l-[3px]',
+                              'border-l-[3px]',
                               daysOverdue >= 3 ? 'border-l-accent-red' : 'border-l-accent-amber',
                             )}
                           >
@@ -125,7 +124,7 @@ export function DashboardClient({ data }: DashboardClientProps) {
                               <StatusBadge status={task.status} />
                               <span className="whitespace-nowrap text-xs font-medium text-accent-red">{daysOverdue}d overdue</span>
                             </div>
-                          </a>
+                          </LinkRow>
                         </StaggerItem>
                       );
                     })}
@@ -162,10 +161,12 @@ export function DashboardClient({ data }: DashboardClientProps) {
                 <CardContent>
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     {data.projects.map((p) => (
-                      <a key={p.id} href={`/projects/${p.id}`} className="rounded-lg border border-border-default p-3 transition-colors hover:bg-bg-hover">
-                        <p className="font-medium text-text-primary">{p.name}</p>
-                        <p className="text-sm text-text-secondary">{p._count.tasks} tasks</p>
-                      </a>
+                      <LinkRow key={p.id} href={`/projects/${p.id}`} className="block">
+                        <div>
+                          <p className="font-medium text-text-primary">{p.name}</p>
+                          <p className="text-sm text-text-secondary">{p._count.tasks} tasks</p>
+                        </div>
+                      </LinkRow>
                     ))}
                   </div>
                 </CardContent>
@@ -190,13 +191,13 @@ export function DashboardClient({ data }: DashboardClientProps) {
                   <StaggerList className="space-y-2">
                     {Array.from(new Map([...(data.managedTasks ?? []), ...(data.myTasks ?? [])].map((t) => [t.id, t])).values()).slice(0, 10).map((task) => (
                       <StaggerItem key={task.id}>
-                        <a href={`/tasks/${task.id}`} className="flex items-center justify-between rounded-lg border border-border-default p-3 transition-colors hover:bg-bg-hover">
+                        <LinkRow href={`/tasks/${task.id}`}>
                           <div className="min-w-0 flex-1">
                             <p className="truncate font-medium text-text-primary">{task.title}</p>
                             <p className="text-sm text-text-secondary">{task.project.name}</p>
                           </div>
                           <StatusBadge status={task.status} />
-                        </a>
+                        </LinkRow>
                       </StaggerItem>
                     ))}
                   </StaggerList>
@@ -239,10 +240,10 @@ export function DashboardClient({ data }: DashboardClientProps) {
                       const daysOverdue = task.dueDate ? Math.floor((now.getTime() - new Date(task.dueDate).getTime()) / (1000 * 60 * 60 * 24)) : 0;
                       return (
                         <StaggerItem key={task.id}>
-                          <a
+                          <LinkRow
                             href={`/tasks/${task.id}`}
                             className={cn(
-                              'flex items-center justify-between rounded-lg border border-border-default p-3 transition-colors hover:bg-bg-hover border-l-[3px]',
+                              'border-l-[3px]',
                               daysOverdue >= 3 ? 'border-l-accent-red' : 'border-l-accent-amber',
                             )}
                           >
@@ -260,7 +261,7 @@ export function DashboardClient({ data }: DashboardClientProps) {
                                 </span>
                               )}
                             </div>
-                          </a>
+                          </LinkRow>
                         </StaggerItem>
                       );
                     })}
@@ -284,7 +285,7 @@ export function DashboardClient({ data }: DashboardClientProps) {
                   <StaggerList className="space-y-2">
                     {data.myActiveTasks.slice(0, 10).map((task) => (
                       <StaggerItem key={task.id}>
-                        <a href={`/tasks/${task.id}`} className="flex items-center justify-between rounded-lg border border-border-default p-3 transition-colors hover:bg-bg-hover">
+                        <LinkRow href={`/tasks/${task.id}`}>
                           <div className="min-w-0 flex-1">
                             <p className="truncate font-medium text-text-primary">{task.title}</p>
                             <p className="text-sm text-text-secondary">{task.project.name}</p>
@@ -293,7 +294,7 @@ export function DashboardClient({ data }: DashboardClientProps) {
                             <StatusBadge status={task.status} />
                             <PriorityBadge priority={task.priority} />
                           </div>
-                        </a>
+                        </LinkRow>
                       </StaggerItem>
                     ))}
                   </StaggerList>
@@ -314,7 +315,7 @@ export function DashboardClient({ data }: DashboardClientProps) {
                   <StaggerList className="space-y-2">
                     {data.completedTasks.slice(0, 10).map((task) => (
                       <StaggerItem key={task.id}>
-                        <a href={`/tasks/${task.id}`} className="flex items-start gap-3 rounded-lg border border-border-default p-3 transition-colors hover:bg-bg-hover">
+                        <LinkRow href={`/tasks/${task.id}`} className="items-start justify-start gap-3">
                           <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent-green-light">
                             <CheckCircle2 className="h-3.5 w-3.5 text-accent-green" />
                           </span>
@@ -323,7 +324,7 @@ export function DashboardClient({ data }: DashboardClientProps) {
                             <p className="text-xs text-text-tertiary">{task.project.name} · {task.completedAt ? formatDate(task.completedAt) : ''}</p>
                           </div>
                           <ArrowUpRight className="h-4 w-4 shrink-0 text-text-tertiary" />
-                        </a>
+                        </LinkRow>
                       </StaggerItem>
                     ))}
                   </StaggerList>

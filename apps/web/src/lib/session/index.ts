@@ -46,12 +46,24 @@ export async function validateSession(token: string) {
           organizationId: true,
           avatarUrl: true,
           role: true,
+          isActive: true,
+          deletedAt: true,
+          roleId: true,
+          roleRef: {
+            select: {
+              id: true,
+              name: true,
+              permissions: {
+                select: { permission: { select: { resource: true, action: true } } },
+              },
+            },
+          },
         },
       },
     },
   });
 
-  if (!session || session.expiresAt < new Date()) {
+  if (!session || session.expiresAt < new Date() || !session.user.isActive || session.user.deletedAt) {
     if (session) {
       await prisma.session.delete({ where: { id: session.id } });
     }
@@ -66,6 +78,9 @@ export async function validateSession(token: string) {
     organizationId: session.user.organizationId,
     avatarUrl: session.user.avatarUrl,
     role: session.user.role,
+    roleId: session.user.roleId,
+    roleName: session.user.roleRef?.name ?? null,
+    permissions: session.user.roleRef?.permissions.map((rp) => `${rp.permission.resource}:${rp.permission.action}`) ?? [],
   };
 }
 

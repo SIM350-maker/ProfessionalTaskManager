@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select } from '@/components/ui/select';
+import { FormSkeleton } from '@/components/ui/form-skeleton';
+import { getActionErrorMessage } from '@/lib/helpers';
 
 const statusOptions = [
   { value: 'PLANNING', label: 'Planning' },
@@ -76,13 +78,18 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
     if (result.success) {
       router.push(`/projects/${id}`);
     } else {
-      setError('Failed to update project');
+      setError(getActionErrorMessage(result.error));
     }
     setLoading(false);
   }
 
   if (!initial) {
-    return <div className="text-center text-text-tertiary py-12">Loading...</div>;
+    return (
+      <div>
+        <h1 className="mb-6 text-3xl font-bold text-text-primary">Edit Project</h1>
+        <FormSkeleton fields={5} />
+      </div>
+    );
   }
 
   return (

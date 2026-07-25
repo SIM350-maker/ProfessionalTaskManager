@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { getActionErrorMessage } from '@/lib/helpers';
 
 interface SettingsFormProps {
   initialEmailEnabled: boolean;
@@ -29,7 +30,7 @@ export function SettingsForm({ initialEmailEnabled, initialInAppEnabled, initial
     const formData = new FormData(e.currentTarget);
     const { changePassword } = await import('@/actions');
     const result = await changePassword(formData);
-    setMessage(result.success ? 'Password changed successfully.' : 'Failed to change password.');
+    setMessage(result.success ? 'Password changed successfully.' : getActionErrorMessage(result.error));
     setPasswordLoading(false);
   }
 
@@ -45,7 +46,7 @@ export function SettingsForm({ initialEmailEnabled, initialInAppEnabled, initial
     formData.set('language', language);
     const { updateNotificationPreferences } = await import('@/actions');
     const result = await updateNotificationPreferences(formData);
-    setMessage(result.success ? 'Preferences updated.' : 'Failed to update preferences.');
+    setMessage(result.success ? 'Preferences updated.' : getActionErrorMessage(result.error));
     setPrefsLoading(false);
   }
 

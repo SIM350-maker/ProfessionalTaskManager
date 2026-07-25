@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select } from '@/components/ui/select';
+import { getActionErrorMessage } from '@/lib/helpers';
 
 const statusOptions = [
   { value: 'PLANNING', label: 'Planning' },
@@ -47,7 +48,7 @@ export default function NewProjectPage() {
     if (result.success && result.data) {
       router.push(`/projects/${result.data.id}`);
     } else {
-      setError('Failed to create project');
+      setError(getActionErrorMessage(result.error));
     }
     setLoading(false);
   }

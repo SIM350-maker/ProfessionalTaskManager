@@ -1,3 +1,4 @@
+import type { Prisma } from '@generated/prisma/client';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { prisma } from '@/lib/database';
@@ -14,8 +15,13 @@ export async function GET(
     }
 
     const { id } = await params;
-    const task = await prisma.task.findUnique({
-      where: { id },
+    const where: Prisma.TaskWhereInput =
+      user.role === 'TEAM_MEMBER'
+        ? { id, deletedAt: null, assignees: { some: { userId: user.id } } }
+        : { id, deletedAt: null, project: { organizationId: user.organizationId } };
+
+    const task = await prisma.task.findFirst({
+      where,
       include: {
         assignees: { include: { user: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } } } },
         labels: { include: { label: true } },

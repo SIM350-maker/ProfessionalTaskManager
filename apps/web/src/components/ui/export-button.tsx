@@ -6,23 +6,41 @@ import { cn } from '@/lib/helpers';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
-type ExportFormat = 'csv' | 'pdf';
+type ExportFormat = 'csv' | 'print';
 
 interface ExportButtonProps {
-  onExport: (format: ExportFormat) => void | Promise<void>;
+  /** Must be plain serializable data — this component is a Client Component receiving props from a Server Component. */
+  data: Record<string, unknown>[];
   loading?: boolean;
   filename?: string;
   className?: string;
   children?: React.ReactNode;
 }
 
-export function ExportButton({ onExport, loading, filename = 'export', className, children }: ExportButtonProps) {
+function downloadCsv(data: Record<string, unknown>[], filename: string) {
+  if (!data || data.length === 0) return;
+  const headers = Object.keys(data[0] ?? {});
+  const csv = [
+    headers.join(','),
+    ...data.map((row) => headers.map((h) => JSON.stringify(row[h] ?? '')).join(',')),
+  ].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${filename}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+export function ExportButton({ data, loading, filename = 'export', className, children }: ExportButtonProps) {
   const [exporting, setExporting] = useState<ExportFormat | null>(null);
 
-  async function handleExport(format: ExportFormat) {
+  function handleExport(format: ExportFormat) {
     setExporting(format);
     try {
-      await onExport(format);
+      if (format === 'csv') downloadCsv(data, filename);
+      else window.print();
     } finally {
       setExporting(null);
     }
@@ -43,9 +61,9 @@ export function ExportButton({ onExport, loading, filename = 'export', className
           <Table className="mr-2 h-4 w-4" />
           Export as CSV
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => handleExport('pdf')} disabled={isExporting}>
+        <DropdownMenuItem onClick={() => handleExport('print')} disabled={isExporting}>
           <FileText className="mr-2 h-4 w-4" />
-          Export as PDF
+          Print
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

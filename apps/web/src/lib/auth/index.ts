@@ -25,6 +25,8 @@ const PERMISSION_MATRIX: Record<string, UserRole[]> = {
   'team:delete': ['ADMINISTRATOR'],
   'workflow:manage': ['ADMINISTRATOR', 'MANAGER'],
   'customField:manage': ['ADMINISTRATOR', 'MANAGER'],
+  'automation:manage': ['ADMINISTRATOR', 'MANAGER'],
+  'template:manage': ['ADMINISTRATOR', 'MANAGER'],
 };
 
 /**
@@ -48,16 +50,25 @@ export function getRoleFromString(roleName: string | null): UserRole {
 }
 
 /**
- * Checks whether a given role is authorised for the specified permission.
+ * Checks whether a subject is authorised for the specified permission.
  *
- * @param role - The user's current role.
+ * Accepts either a legacy {@link UserRole} string (checked against the hardcoded
+ * {@link PERMISSION_MATRIX}) or a {@link SessionUser} (checked against that user's
+ * dynamically-resolved `permissions` list, sourced from their org-defined Role).
+ * The two-shape signature exists only for the duration of the RBAC migration —
+ * once every call site passes a `SessionUser`, the string branch and
+ * `PERMISSION_MATRIX` can be deleted.
+ *
+ * @param subject - The user's legacy role string, or their full session user.
  * @param permission - The permission string to check (e.g. `"task:create"`).
- * @returns `true` if the role is listed in the permission matrix for the given permission.
  */
-export function hasPermission(role: UserRole, permission: string): boolean {
-  const allowedRoles = PERMISSION_MATRIX[permission];
-  if (!allowedRoles) return false;
-  return allowedRoles.includes(role);
+export function hasPermission(subject: UserRole | SessionUser, permission: string): boolean {
+  if (typeof subject === 'string') {
+    const allowedRoles = PERMISSION_MATRIX[permission];
+    if (!allowedRoles) return false;
+    return allowedRoles.includes(subject);
+  }
+  return subject.permissions.includes(permission);
 }
 
 /**

@@ -8,6 +8,8 @@ import { User, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
+import { PageTransition } from '@/components/animations/PageTransition';
+import { getActionErrorMessage } from '@/lib/helpers';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -28,18 +30,13 @@ export default function RegisterPage() {
       router.push('/auth/login');
       return;
     }
-    setError('Registration failed');
+    setError(getActionErrorMessage(result.error));
     setLoading(false);
   }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-bg-subtle px-4">
-      <motion.div
-        className="w-full max-w-5xl"
-        initial={{ opacity: 0, y: 24 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, ease: 'easeOut' }}
-      >
+      <PageTransition className="w-full max-w-5xl">
         <Card>
           <CardHeader>
             <h1 className="text-2xl font-bold text-text-primary">Create your account</h1>
@@ -100,7 +97,7 @@ export default function RegisterPage() {
             </p>
           </CardContent>
         </Card>
-      </motion.div>
+      </PageTransition>
     </div>
   );
 }

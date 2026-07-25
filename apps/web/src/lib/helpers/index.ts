@@ -141,6 +141,26 @@ export function getPriorityColor(priority: string): string {
   return map[priority] ?? '#94a3b8';
 }
 
+/**
+ * Server actions in this app return either `{ message: string }` or a Zod
+ * `.flatten()` result (`{ formErrors, fieldErrors }`) as their `error` payload.
+ * This extracts a human-readable message from either shape instead of the
+ * generic string forms previously hardcoded at each call site.
+ */
+export function getActionErrorMessage(error: unknown, fallback = 'Something went wrong. Please try again.'): string {
+  if (!error || typeof error !== 'object') return fallback;
+  const err = error as { message?: string; formErrors?: string[]; fieldErrors?: Record<string, string[] | undefined> };
+
+  if (typeof err.message === 'string' && err.message) return err.message;
+
+  const fieldMessages = err.fieldErrors
+    ? Object.entries(err.fieldErrors).flatMap(([field, messages]) => (messages ?? []).map((m) => `${field}: ${m}`))
+    : [];
+  const combined = [...(err.formErrors ?? []), ...fieldMessages];
+
+  return combined.length > 0 ? combined.join('; ') : fallback;
+}
+
 export function getInitialsColor(name: string): string {
   const colors = ['bg-accent-blue-light text-accent-blue', 'bg-accent-purple-light text-accent-purple', 'bg-accent-cyan-light text-accent-cyan', 'bg-accent-amber-light text-accent-amber', 'bg-accent-green-light text-accent-green', 'bg-accent-rose-light text-accent-rose'];
   let hash = 0;

@@ -1,23 +1,26 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { User, Lock, Bell, Palette, Monitor, Sun, Moon, Save, Eye, EyeOff, Puzzle, Accessibility } from 'lucide-react';
+import { User, Lock, Bell, Palette, Monitor, Sun, Moon, Save, Eye, EyeOff, Puzzle, Accessibility, MessageSquare, Calendar, Copy, Check, RefreshCw, Plug, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { getActionErrorMessage } from '@/lib/helpers';
 import type { Workflow, WorkflowState, CustomFieldDefinition, AutomationRule, TaskTemplate } from '@/types';
 
-interface Tab {
-  id: string;
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-}
+const TABS = [
+  { id: 'account', label: 'Account', icon: Settings },
+  { id: 'notifications', label: 'Notifications', icon: Bell },
+  { id: 'theme', label: 'Theme', icon: Palette },
+  { id: 'accessibility', label: 'Accessibility', icon: Accessibility },
+  { id: 'customization', label: 'Customization', icon: Puzzle },
+  { id: 'integrations', label: 'Integrations', icon: Plug },
+] as const;
 
 interface SettingsTabsProps {
-  tabs: readonly Tab[];
   initialEmailEnabled: boolean;
   initialInAppEnabled: boolean;
   initialTheme: string;
@@ -30,10 +33,11 @@ interface SettingsTabsProps {
   canManageCustomField: boolean;
   canManageAutomation: boolean;
   canManageTemplate: boolean;
+  canManageOrganization: boolean;
+  initialSlackWebhookUrl: string;
 }
 
 export function SettingsTabs({
-  tabs,
   initialEmailEnabled,
   initialInAppEnabled,
   initialTheme,
@@ -46,6 +50,8 @@ export function SettingsTabs({
   canManageCustomField,
   canManageAutomation,
   canManageTemplate,
+  canManageOrganization,
+  initialSlackWebhookUrl,
 }: SettingsTabsProps) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('account');
@@ -59,6 +65,10 @@ export function SettingsTabs({
   const [inAppEnabled, setInAppEnabled] = useState(initialInAppEnabled);
   const [theme, setTheme] = useState(initialTheme);
   const [language] = useState(initialLanguage);
+  const [slackWebhookUrl, setSlackWebhookUrl] = useState(initialSlackWebhookUrl);
+  const [calendarUrl, setCalendarUrl] = useState('');
+  const [calendarLoading, setCalendarLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   async function handlePasswordChange(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -99,6 +109,42 @@ export function SettingsTabs({
       setMessage('An unexpected error occurred.');
     }
     setLoading(false);
+  }
+
+  useEffect(() => {
+    if (activeTab !== 'integrations' || calendarUrl) return;
+    setCalendarLoading(true);
+    import('@/actions').then(async ({ getCalendarFeedUrl }) => {
+      const result = await getCalendarFeedUrl();
+      if (result.success && result.data) setCalendarUrl(result.data.url);
+      setCalendarLoading(false);
+    });
+  }, [activeTab, calendarUrl]);
+
+  async function handleSlackSave() {
+    setLoading(true);
+    setMessage('');
+    const formData = new FormData();
+    formData.set('slackWebhookUrl', slackWebhookUrl);
+    const { updateSlackWebhook } = await import('@/actions');
+    const result = await updateSlackWebhook(formData);
+    setMessageType(result.success ? 'success' : 'error');
+    setMessage(result.success ? 'Slack integration updated.' : getActionErrorMessage(result.error));
+    setLoading(false);
+  }
+
+  async function handleRegenerateCalendarUrl() {
+    setCalendarLoading(true);
+    const { regenerateCalendarFeedToken } = await import('@/actions');
+    const result = await regenerateCalendarFeedToken();
+    if (result.success && result.data) setCalendarUrl(result.data.url);
+    setCalendarLoading(false);
+  }
+
+  async function handleCopyCalendarUrl() {
+    await navigator.clipboard.writeText(calendarUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   }
 
   function renderTabContent() {
@@ -399,6 +445,72 @@ export function SettingsTabs({
           </div>
         );
 
+      case 'integrations':
+        return (
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5 text-text-secondary" />
+                  <h2 className="text-lg font-semibold text-text-primary">Calendar Feed</h2>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <p className="mb-4 text-sm text-text-secondary">
+                  Subscribe to this URL from Google Calendar, Outlook, or Apple Calendar to see your
+                  assigned tasks with due dates. Anyone with this link can view your task due dates,
+                  so keep it private.
+                </p>
+                {calendarLoading && !calendarUrl ? (
+                  <p className="text-sm text-text-tertiary">Loading...</p>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Input value={calendarUrl} readOnly className="font-mono text-xs" />
+                      <Button variant="outline" size="sm" onClick={handleCopyCalendarUrl} icon={copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}>
+                        {copied ? 'Copied' : 'Copy'}
+                      </Button>
+                    </div>
+                    <Button variant="ghost" size="sm" loading={calendarLoading} onClick={handleRegenerateCalendarUrl} icon={<RefreshCw className="h-3.5 w-3.5" />}>
+                      Regenerate link
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {canManageOrganization && (
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <MessageSquare className="h-5 w-5 text-text-secondary" />
+                    <h2 className="text-lg font-semibold text-text-primary">Slack Notifications</h2>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <p className="mb-4 text-sm text-text-secondary">
+                    Paste a Slack incoming webhook URL to post a message whenever a task is completed
+                    or an automation rule sends a notification.
+                  </p>
+                  <div className="space-y-4">
+                    <Input
+                      label="Webhook URL"
+                      value={slackWebhookUrl}
+                      onChange={(e) => setSlackWebhookUrl(e.target.value)}
+                      placeholder="https://hooks.slack.com/services/..."
+                    />
+                    <div className="flex justify-end">
+                      <Button type="button" loading={loading} icon={<Save className="h-4 w-4" />} onClick={handleSlackSave}>
+                        Save
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        );
+
       case 'accessibility':
         return (
           <Card>
@@ -478,7 +590,7 @@ export function SettingsTabs({
                       localStorage.getItem('reduced-motion') === 'true' ? 'bg-accent-blue' : 'bg-bg-hover'
                     }`}
                   >
-                    <span className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${
+                    <span className={`inline-block h-4 w-4 rounded-full bg-text-inverse transition-transform ${
                       localStorage.getItem('reduced-motion') === 'true' ? 'translate-x-6' : 'translate-x-1'
                     }`} />
                   </button>
@@ -510,7 +622,7 @@ export function SettingsTabs({
       )}
 
       <div className="flex flex-wrap gap-1 rounded-lg border border-border-default bg-bg-card p-1">
-        {tabs.map((tab) => {
+        {TABS.map((tab) => {
           const Icon = tab.icon;
           return (
             <button

@@ -6,6 +6,7 @@ import { useAuth } from '@/providers';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
+import { getActionErrorMessage } from '@/lib/helpers';
 
 export default function NewTeamPage() {
   const router = useRouter();
@@ -33,7 +34,7 @@ export default function NewTeamPage() {
     if (result.success) {
       router.push('/teams');
     } else {
-      setError('Failed to create team');
+      setError(getActionErrorMessage(result.error));
     }
     setLoading(false);
   }

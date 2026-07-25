@@ -193,15 +193,26 @@ async function addTaskLabel(taskId: string, labelId: string): Promise<void> {
 
 async function sendNotification(context: Record<string, unknown>, action: Record<string, unknown>): Promise<void> {
   const { createNotification } = await import('@/services/notifications');
+  const { sendSlackNotification } = await import('@/services/integrations/slack');
   const notificationType = (action.type as string) === 'SEND_NOTIFICATION' ? 'TASK_ASSIGNED' : 'TASK_ASSIGNED';
+  const title = (action.title as string) || 'Automated Notification';
+  const message = (action.message as string) || '';
+
   await createNotification({
     type: notificationType,
-    title: (action.title as string) || 'Automated Notification',
-    message: (action.message as string) || '',
+    title,
+    message,
     entityType: (action.entityType as string) || 'task',
     entityId: (context.taskId as string) || '',
     userId: (action.userId as string) || (context.assigneeId as string) || '',
   });
+
+  if (context.taskId) {
+    const orgId = await getTaskOrgId(context.taskId as string);
+    if (orgId) {
+      await sendSlackNotification(orgId, `:robot_face: *${title}*${message ? `\n${message}` : ''}`);
+    }
+  }
 }
 
 async function createTaskFromAction(action: Record<string, unknown>, context: Record<string, unknown>): Promise<void> {

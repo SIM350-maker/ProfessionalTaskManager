@@ -5,7 +5,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/database';
 import { getCurrentUser, hasPermission } from '@/lib/auth';
-import { createSession, deleteSession } from '@/lib/session';
+import { createSession, deleteSession, deleteUserSessions } from '@/lib/session';
 import {
   createTaskSchema,
   updateTaskSchema,
@@ -14,6 +14,7 @@ import {
   createCommentSchema,
   updateCommentSchema,
   createTeamSchema,
+  updateTeamSchema,
   updateUserSchema,
   changePasswordSchema,
   registerSchema,
@@ -21,9 +22,26 @@ import {
   passwordSchema,
 } from '@/lib/validation';
 import { z } from 'zod';
-import { sanitizeUserGeneratedContent } from '@/lib/security';
+import { sanitizeUserGeneratedContent, getClientIp } from '@/lib/security';
+import { checkAuthRateLimit } from '@/lib/security/rate-limiter';
 import { notifyTaskCompleted } from '@/services/notifications';
 import { evaluateAutomationRules } from '@/services/automation';
+import { sendEmail, buildPasswordResetEmail, buildEmailVerificationEmail } from '@/services/email';
+import { ensureSystemRolesForOrg } from '@/services/roles';
+import { env } from '@/lib/config/env';
+
+/**
+ * The real login/register/reset-password pages call these server actions directly,
+ * bypassing the rate limiting that exists on the (unused) /api/v1/auth route. This
+ * enforces the same 5-requests/15-minute window at the point the UI actually calls in.
+ */
+async function enforceAuthRateLimit(action: string): Promise<boolean> {
+  const ip = await getClientIp();
+  const { allowed } = await checkAuthRateLimit(ip, action);
+  return allowed;
+}
+
+const RATE_LIMIT_ERROR = { success: false as const, error: { message: 'Too many attempts. Please try again later.' } };
 
 const COOKIE_OPTIONS = {
   httpOnly: true,
@@ -34,6 +52,8 @@ const COOKIE_OPTIONS = {
 };
 
 export async function registerUser(formData: FormData) {
+  if (!(await enforceAuthRateLimit('register'))) return RATE_LIMIT_ERROR;
+
   const raw = Object.fromEntries(formData);
   const parsed = registerSchema.safeParse(raw);
   if (!parsed.success) {
@@ -48,6 +68,7 @@ export async function registerUser(formData: FormData) {
   }
 
   const existingOrg = await prisma.organization.findFirst({ where: { name: organizationName } });
+  const isNewOrg = !existingOrg;
 
   const organization = existingOrg ?? await prisma.organization.create({
     data: {
@@ -56,9 +77,13 @@ export async function registerUser(formData: FormData) {
     },
   });
 
+  const roles = await ensureSystemRolesForOrg(organization.id);
+  const assignedRole = isNewOrg ? roles.admin : roles.member;
+
   const bcrypt = await import('bcryptjs');
   const passwordHash = await bcrypt.hash(password, 12);
 
+  const emailVerificationToken = crypto.randomUUID();
   const user = await prisma.user.create({
     data: {
       email,
@@ -66,14 +91,24 @@ export async function registerUser(formData: FormData) {
       lastName,
       passwordHash,
       organizationId: organization.id,
-      emailVerificationToken: crypto.randomUUID(),
+      emailVerificationToken,
+      role: isNewOrg ? 'ADMINISTRATOR' : 'TEAM_MEMBER',
+      roleId: assignedRole.id,
     },
+  });
+
+  await sendEmail({
+    to: user.email,
+    subject: 'Verify your email',
+    html: buildEmailVerificationEmail(`${env.NEXT_PUBLIC_APP_URL}/auth/verify-email/${emailVerificationToken}`),
   });
 
   return { success: true, data: { userId: user.id, organizationId: organization.id } };
 }
 
 export async function loginUser(formData: FormData) {
+  if (!(await enforceAuthRateLimit('login'))) return RATE_LIMIT_ERROR;
+
   const raw = Object.fromEntries(formData);
   const parsed = loginSchema.safeParse(raw);
   if (!parsed.success) {
@@ -118,6 +153,8 @@ export async function logoutUser() {
 }
 
 export async function requestPasswordReset(formData: FormData) {
+  if (!(await enforceAuthRateLimit('password-reset-request'))) return RATE_LIMIT_ERROR;
+
   const raw = Object.fromEntries(formData);
   const parsed = loginSchema.pick({ email: true }).safeParse(raw);
   if (!parsed.success) {
@@ -135,12 +172,20 @@ export async function requestPasswordReset(formData: FormData) {
       where: { id: user.id },
       data: { passwordResetToken: token, passwordResetExpires: expiresAt },
     });
+
+    await sendEmail({
+      to: user.email,
+      subject: 'Reset your password',
+      html: buildPasswordResetEmail(`${env.NEXT_PUBLIC_APP_URL}/auth/reset-password/${token}`),
+    });
   }
 
   return { success: true };
 }
 
 export async function resetPassword(token: string, formData: FormData) {
+  if (!(await enforceAuthRateLimit('password-reset'))) return RATE_LIMIT_ERROR;
+
   const raw = Object.fromEntries(formData);
   const parsed = z.object({ password: passwordSchema }).safeParse(raw);
   if (!parsed.success) {
@@ -184,6 +229,8 @@ export async function verifyEmail(token: string) {
 }
 
 export async function resendVerificationEmail(formData: FormData) {
+  if (!(await enforceAuthRateLimit('resend-verification'))) return RATE_LIMIT_ERROR;
+
   const raw = Object.fromEntries(formData);
   const parsed = loginSchema.pick({ email: true }).safeParse(raw);
   if (!parsed.success) {
@@ -198,6 +245,12 @@ export async function resendVerificationEmail(formData: FormData) {
     await prisma.user.update({
       where: { id: user.id },
       data: { emailVerificationToken: token },
+    });
+
+    await sendEmail({
+      to: user.email,
+      subject: 'Verify your email',
+      html: buildEmailVerificationEmail(`${env.NEXT_PUBLIC_APP_URL}/auth/verify-email/${token}`),
     });
   }
 
@@ -219,44 +272,48 @@ export async function createTask(formData: FormData) {
 
   const { assigneeIds, workflowId, ...taskData } = parsed.data;
 
-  const task = await prisma.task.create({
-    data: {
-      title: taskData.title,
-      description: taskData.description ? sanitizeUserGeneratedContent(taskData.description) : null,
-      projectId: taskData.projectId,
-      workflowId: workflowId,
-      status: taskData.status ?? 'TODO',
-      priority: taskData.priority ?? 'MEDIUM',
-      dueDate: taskData.dueDate ? new Date(taskData.dueDate) : null,
-      startDate: taskData.startDate ? new Date(taskData.startDate) : null,
-      estimatedHours: taskData.estimatedHours,
-      parentTaskId: taskData.parentTaskId,
-      createdBy: user.id,
-      assignedBy: assigneeIds?.length ? user.id : null,
-      customFields: (taskData.customFields ?? {}) as object,
-    },
-  });
+  const task = await prisma.$transaction(async (tx) => {
+    const created = await tx.task.create({
+      data: {
+        title: taskData.title,
+        description: taskData.description ? sanitizeUserGeneratedContent(taskData.description) : null,
+        projectId: taskData.projectId,
+        workflowId: workflowId,
+        status: taskData.status ?? 'TODO',
+        priority: taskData.priority ?? 'MEDIUM',
+        dueDate: taskData.dueDate ? new Date(taskData.dueDate) : null,
+        startDate: taskData.startDate ? new Date(taskData.startDate) : null,
+        estimatedHours: taskData.estimatedHours,
+        parentTaskId: taskData.parentTaskId,
+        createdBy: user.id,
+        assignedBy: assigneeIds?.length ? user.id : null,
+        customFields: (taskData.customFields ?? {}) as object,
+      },
+    });
 
-  if (assigneeIds?.length) {
-    for (const assigneeId of assigneeIds) {
-      await prisma.taskAssignee.create({
-        data: {
+    if (assigneeIds?.length) {
+      await tx.taskAssignee.createMany({
+        data: assigneeIds.map((assigneeId) => ({
           userId: assigneeId,
-          taskId: task.id,
+          taskId: created.id,
           assignedBy: user.id,
           organizationId: user.organizationId,
-        },
+        })),
       });
     }
-  }
 
-  if (taskData.labelIds?.length) {
-    for (const labelId of taskData.labelIds) {
-      await prisma.taskLabel.create({
-        data: { taskId: task.id, labelId, organizationId: user.organizationId },
+    if (taskData.labelIds?.length) {
+      await tx.taskLabel.createMany({
+        data: taskData.labelIds.map((labelId) => ({
+          taskId: created.id,
+          labelId,
+          organizationId: user.organizationId,
+        })),
       });
     }
-  }
+
+    return created;
+  });
 
   try {
     const project = await prisma.project.findUnique({
@@ -273,8 +330,8 @@ export async function createTask(formData: FormData) {
         status: taskData.status ?? 'TODO',
       });
     }
-  } catch {
-    // automation failures should not block task creation
+  } catch (error) {
+    console.error('Automation rule evaluation failed for TASK_CREATED:', error);
   }
 
   revalidatePath(`/projects/${taskData.projectId}`);
@@ -293,9 +350,14 @@ export async function updateTask(taskId: string, formData: FormData) {
 
   const existingTask = await prisma.task.findUnique({
     where: { id: taskId },
-    include: { assignees: { select: { userId: true } } },
+    include: {
+      assignees: { select: { userId: true } },
+      project: { select: { organizationId: true } },
+    },
   });
-  if (!existingTask) return { success: false, error: { message: 'Task not found' } };
+  if (!existingTask || existingTask.project.organizationId !== user.organizationId) {
+    return { success: false, error: { message: 'Task not found' } };
+  }
 
   const isAssignee = existingTask.assignees.some((a) => a.userId === user.id);
   if (!hasPermission(user.role, 'task:update') && !isAssignee) {
@@ -308,38 +370,47 @@ export async function updateTask(taskId: string, formData: FormData) {
 
   const { assigneeIds, labelIds, ...updateData } = parsed.data;
 
-  const task = await prisma.task.update({
-    where: { id: taskId },
-    data: {
-      ...(updateData.title && { title: updateData.title }),
-      ...(updateData.description !== undefined && { description: sanitizeUserGeneratedContent(updateData.description ?? '') }),
-      ...(updateData.status && { status: updateData.status }),
-      ...(updateData.priority && { priority: updateData.priority }),
-      ...(updateData.dueDate !== undefined && { dueDate: updateData.dueDate ? new Date(updateData.dueDate) : null }),
-      ...(updateData.startDate !== undefined && { startDate: updateData.startDate ? new Date(updateData.startDate) : null }),
-      ...(updateData.estimatedHours !== undefined && { estimatedHours: updateData.estimatedHours }),
-      ...(updateData.parentTaskId !== undefined && { parentTaskId: updateData.parentTaskId }),
-      updatedBy: user.id,
-    },
+  const task = await prisma.$transaction(async (tx) => {
+    const updated = await tx.task.update({
+      where: { id: taskId },
+      data: {
+        ...(updateData.title && { title: updateData.title }),
+        ...(updateData.description !== undefined && { description: sanitizeUserGeneratedContent(updateData.description ?? '') }),
+        ...(updateData.status && { status: updateData.status }),
+        ...(updateData.priority && { priority: updateData.priority }),
+        ...(updateData.dueDate !== undefined && { dueDate: updateData.dueDate ? new Date(updateData.dueDate) : null }),
+        ...(updateData.startDate !== undefined && { startDate: updateData.startDate ? new Date(updateData.startDate) : null }),
+        ...(updateData.estimatedHours !== undefined && { estimatedHours: updateData.estimatedHours }),
+        ...(updateData.parentTaskId !== undefined && { parentTaskId: updateData.parentTaskId }),
+        updatedBy: user.id,
+      },
+    });
+
+    if (assigneeIds) {
+      await tx.taskAssignee.deleteMany({ where: { taskId } });
+      if (assigneeIds.length) {
+        await tx.taskAssignee.createMany({
+          data: assigneeIds.map((assigneeId) => ({
+            userId: assigneeId,
+            taskId,
+            assignedBy: user.id,
+            organizationId: user.organizationId,
+          })),
+        });
+      }
+    }
+
+    if (labelIds) {
+      await tx.taskLabel.deleteMany({ where: { taskId } });
+      if (labelIds.length) {
+        await tx.taskLabel.createMany({
+          data: labelIds.map((labelId) => ({ taskId, labelId, organizationId: user.organizationId })),
+        });
+      }
+    }
+
+    return updated;
   });
-
-  if (assigneeIds) {
-    await prisma.taskAssignee.deleteMany({ where: { taskId } });
-    for (const assigneeId of assigneeIds) {
-      await prisma.taskAssignee.create({
-        data: { userId: assigneeId, taskId, assignedBy: user.id, organizationId: user.organizationId },
-      });
-    }
-  }
-
-  if (labelIds) {
-    await prisma.taskLabel.deleteMany({ where: { taskId } });
-    for (const labelId of labelIds) {
-      await prisma.taskLabel.create({
-        data: { taskId, labelId, organizationId: user.organizationId },
-      });
-    }
-  }
 
   try {
     const project = await prisma.project.findUnique({
@@ -365,8 +436,8 @@ export async function updateTask(taskId: string, formData: FormData) {
         });
       }
     }
-  } catch {
-    // automation failures should not block task updates
+  } catch (error) {
+    console.error('Automation rule evaluation failed for TASK_UPDATED:', error);
   }
 
   revalidatePath(`/tasks/${taskId}`);
@@ -389,7 +460,9 @@ export async function updateTaskStatus(taskId: string, status: string) {
       project: { select: { name: true, organizationId: true } },
     },
   });
-  if (!task) return { success: false, error: { message: 'Task not found' } };
+  if (!task || task.project.organizationId !== user.organizationId) {
+    return { success: false, error: { message: 'Task not found' } };
+  }
 
   const isAssignee = task.assignees.some((a) => a.userId === user.id);
   if (!hasPermission(user.role, 'task:update') && !isAssignee) {
@@ -407,7 +480,7 @@ export async function updateTaskStatus(taskId: string, status: string) {
 
   if (status === 'DONE') {
     const managerIds = task.assignees.map((a) => a.user.id).filter((id) => id !== user.id);
-    await notifyTaskCompleted(taskId, task.title, `${user.firstName} ${user.lastName}`, user.id, managerIds);
+    await notifyTaskCompleted(taskId, task.title, `${user.firstName} ${user.lastName}`, user.id, managerIds, task.project.organizationId);
   }
 
   try {
@@ -418,8 +491,8 @@ export async function updateTaskStatus(taskId: string, status: string) {
       oldStatus: task.status,
       newStatus: status,
     });
-  } catch {
-    // automation failure should not block status update
+  } catch (error) {
+    console.error('Automation rule evaluation failed for TASK_STATUS_CHANGED:', error);
   }
 
   revalidatePath(`/tasks/${taskId}`);
@@ -430,8 +503,13 @@ export async function deleteTask(taskId: string) {
   const user = await getCurrentUser();
   if (!user) return { success: false, error: { message: 'Unauthorized' } };
 
-  const task = await prisma.task.findUnique({ where: { id: taskId } });
-  if (!task) return { success: false, error: { message: 'Task not found' } };
+  const task = await prisma.task.findUnique({
+    where: { id: taskId },
+    include: { project: { select: { organizationId: true } } },
+  });
+  if (!task || task.project.organizationId !== user.organizationId) {
+    return { success: false, error: { message: 'Task not found' } };
+  }
 
   if (!hasPermission(user.role, 'task:delete') && task.createdBy !== user.id) {
     return { success: false, error: { message: 'Permission denied' } };
@@ -444,6 +522,85 @@ export async function deleteTask(taskId: string) {
 
   revalidatePath('/tasks');
   return { success: true };
+}
+
+const BULK_TASK_STATUSES = ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE', 'ARCHIVED'] as const;
+
+export async function bulkUpdateTaskStatus(taskIds: string[], status: string) {
+  const user = await getCurrentUser();
+  if (!user || !hasPermission(user.role, 'task:update')) {
+    return { success: false, error: { message: 'Permission denied' } };
+  }
+  if (!BULK_TASK_STATUSES.includes(status as typeof BULK_TASK_STATUSES[number])) {
+    return { success: false, error: { message: 'Invalid status' } };
+  }
+
+  const result = await prisma.task.updateMany({
+    where: { id: { in: taskIds }, project: { organizationId: user.organizationId }, deletedAt: null },
+    data: {
+      status: status as typeof BULK_TASK_STATUSES[number],
+      updatedBy: user.id,
+      ...(status === 'DONE' ? { completedAt: new Date() } : { completedAt: null }),
+    },
+  });
+
+  revalidatePath('/tasks');
+  return { success: true, data: { count: result.count } };
+}
+
+export async function bulkAssignTasks(taskIds: string[], assigneeId: string) {
+  const user = await getCurrentUser();
+  if (!user || !hasPermission(user.role, 'task:update')) {
+    return { success: false, error: { message: 'Permission denied' } };
+  }
+
+  const [validTasks, assignee] = await Promise.all([
+    prisma.task.findMany({
+      where: { id: { in: taskIds }, project: { organizationId: user.organizationId }, deletedAt: null },
+      select: { id: true },
+    }),
+    prisma.user.findFirst({ where: { id: assigneeId, organizationId: user.organizationId, deletedAt: null } }),
+  ]);
+  if (!assignee) return { success: false, error: { message: 'User not found' } };
+  if (validTasks.length === 0) return { success: false, error: { message: 'No valid tasks selected' } };
+
+  await prisma.$transaction(
+    validTasks.map((task) =>
+      prisma.taskAssignee.upsert({
+        where: { userId_taskId: { userId: assigneeId, taskId: task.id } },
+        update: {},
+        create: { userId: assigneeId, taskId: task.id, assignedBy: user.id, organizationId: user.organizationId },
+      }),
+    ),
+  );
+
+  revalidatePath('/tasks');
+  return { success: true, data: { count: validTasks.length } };
+}
+
+export async function bulkDeleteTasks(taskIds: string[]) {
+  const user = await getCurrentUser();
+  if (!user) return { success: false, error: { message: 'Unauthorized' } };
+
+  const tasks = await prisma.task.findMany({
+    where: { id: { in: taskIds }, project: { organizationId: user.organizationId }, deletedAt: null },
+    select: { id: true, createdBy: true },
+  });
+
+  const deletableIds = tasks
+    .filter((t) => hasPermission(user.role, 'task:delete') || t.createdBy === user.id)
+    .map((t) => t.id);
+  if (deletableIds.length === 0) {
+    return { success: false, error: { message: 'Permission denied' } };
+  }
+
+  await prisma.task.updateMany({
+    where: { id: { in: deletableIds } },
+    data: { deletedAt: new Date() },
+  });
+
+  revalidatePath('/tasks');
+  return { success: true, data: { count: deletableIds.length } };
 }
 
 export async function createProject(formData: FormData) {
@@ -478,8 +635,8 @@ export async function createProject(formData: FormData) {
       projectId: project.id,
       userId: user.id,
     });
-  } catch {
-    // automation failure should not block project creation
+  } catch (error) {
+    console.error('Automation rule evaluation failed for PROJECT_CREATED:', error);
   }
 
   revalidatePath('/projects');
@@ -497,6 +654,11 @@ export async function updateProject(projectId: string, formData: FormData) {
   if (!parsed.success) {
     return { success: false, error: parsed.error.flatten() };
   }
+
+  const existingProject = await prisma.project.findFirst({
+    where: { id: projectId, organizationId: user.organizationId, deletedAt: null },
+  });
+  if (!existingProject) return { success: false, error: { message: 'Project not found' } };
 
   const project = await prisma.project.update({
     where: { id: projectId },
@@ -522,15 +684,21 @@ export async function deleteProject(projectId: string) {
     return { success: false, error: { message: 'Permission denied' } };
   }
 
-  await prisma.project.update({
-    where: { id: projectId },
-    data: { deletedAt: new Date(), isArchived: true },
+  const existingProject = await prisma.project.findFirst({
+    where: { id: projectId, organizationId: user.organizationId, deletedAt: null },
   });
+  if (!existingProject) return { success: false, error: { message: 'Project not found' } };
 
-  await prisma.task.updateMany({
-    where: { projectId },
-    data: { deletedAt: new Date() },
-  });
+  await prisma.$transaction([
+    prisma.project.update({
+      where: { id: projectId },
+      data: { deletedAt: new Date(), isArchived: true },
+    }),
+    prisma.task.updateMany({
+      where: { projectId },
+      data: { deletedAt: new Date() },
+    }),
+  ]);
 
   revalidatePath('/projects');
   return { success: true };
@@ -568,8 +736,8 @@ export async function addComment(taskId: string, formData: FormData) {
         commentId: comment.id,
       });
     }
-  } catch {
-    // automation failure should not block comment creation
+  } catch (error) {
+    console.error('Automation rule evaluation failed for COMMENT_ADDED:', error);
   }
 
   revalidatePath(`/tasks/${taskId}`);
@@ -630,22 +798,28 @@ export async function createTeam(formData: FormData) {
     return { success: false, error: parsed.error.flatten() };
   }
 
-  const team = await prisma.team.create({
-    data: {
-      name: parsed.data.name,
-      description: parsed.data.description,
-      organizationId: user.organizationId,
-      createdBy: user.id,
-    },
-  });
+  const team = await prisma.$transaction(async (tx) => {
+    const created = await tx.team.create({
+      data: {
+        name: parsed.data.name,
+        description: parsed.data.description,
+        organizationId: user.organizationId,
+        createdBy: user.id,
+      },
+    });
 
-  if (parsed.data.memberIds?.length) {
-    for (const memberId of parsed.data.memberIds) {
-      await prisma.userTeam.create({
-        data: { userId: memberId, teamId: team.id, organizationId: user.organizationId },
+    if (parsed.data.memberIds?.length) {
+      await tx.userTeam.createMany({
+        data: parsed.data.memberIds.map((memberId) => ({
+          userId: memberId,
+          teamId: created.id,
+          organizationId: user.organizationId,
+        })),
       });
     }
-  }
+
+    return created;
+  });
 
   revalidatePath('/teams');
   return { success: true, data: team };
@@ -657,12 +831,89 @@ export async function deleteTeam(teamId: string) {
     return { success: false, error: { message: 'Permission denied' } };
   }
 
+  const existingTeam = await prisma.team.findFirst({
+    where: { id: teamId, organizationId: user.organizationId, deletedAt: null },
+  });
+  if (!existingTeam) return { success: false, error: { message: 'Team not found' } };
+
   await prisma.team.update({
     where: { id: teamId },
     data: { deletedAt: new Date() },
   });
 
   revalidatePath('/teams');
+  return { success: true };
+}
+
+export async function updateTeam(teamId: string, formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user || !hasPermission(user.role, 'team:update')) {
+    return { success: false, error: { message: 'Permission denied' } };
+  }
+
+  const raw = Object.fromEntries(formData);
+  const parsed = updateTeamSchema.safeParse(raw);
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.flatten() };
+  }
+
+  const existingTeam = await prisma.team.findFirst({
+    where: { id: teamId, organizationId: user.organizationId, deletedAt: null },
+  });
+  if (!existingTeam) return { success: false, error: { message: 'Team not found' } };
+
+  const team = await prisma.team.update({
+    where: { id: teamId },
+    data: {
+      ...(parsed.data.name !== undefined && { name: parsed.data.name }),
+      ...(parsed.data.description !== undefined && { description: parsed.data.description }),
+    },
+  });
+
+  revalidatePath(`/teams/${teamId}`);
+  return { success: true, data: team };
+}
+
+export async function addTeamMember(teamId: string, memberUserId: string) {
+  const user = await getCurrentUser();
+  if (!user || !hasPermission(user.role, 'team:update')) {
+    return { success: false, error: { message: 'Permission denied' } };
+  }
+
+  const [team, member] = await Promise.all([
+    prisma.team.findFirst({ where: { id: teamId, organizationId: user.organizationId, deletedAt: null } }),
+    prisma.user.findFirst({ where: { id: memberUserId, organizationId: user.organizationId, deletedAt: null } }),
+  ]);
+  if (!team) return { success: false, error: { message: 'Team not found' } };
+  if (!member) return { success: false, error: { message: 'User not found' } };
+
+  const existing = await prisma.userTeam.findUnique({
+    where: { userId_teamId: { userId: memberUserId, teamId } },
+  });
+  if (existing) return { success: false, error: { message: 'User is already a member of this team' } };
+
+  await prisma.userTeam.create({
+    data: { userId: memberUserId, teamId, organizationId: user.organizationId },
+  });
+
+  revalidatePath(`/teams/${teamId}`);
+  return { success: true };
+}
+
+export async function removeTeamMember(teamId: string, memberUserId: string) {
+  const user = await getCurrentUser();
+  if (!user || !hasPermission(user.role, 'team:update')) {
+    return { success: false, error: { message: 'Permission denied' } };
+  }
+
+  const team = await prisma.team.findFirst({
+    where: { id: teamId, organizationId: user.organizationId, deletedAt: null },
+  });
+  if (!team) return { success: false, error: { message: 'Team not found' } };
+
+  await prisma.userTeam.deleteMany({ where: { teamId, userId: memberUserId } });
+
+  revalidatePath(`/teams/${teamId}`);
   return { success: true };
 }
 
@@ -731,6 +982,8 @@ export async function createUser(formData: FormData) {
   const tempPassword = Math.random().toString(36).slice(-12);
   const passwordHash = await bcrypt.hash(tempPassword, 12);
 
+  const roles = await ensureSystemRolesForOrg(user.organizationId);
+
   const newUser = await prisma.user.create({
     data: {
       email: parsed.data.email,
@@ -738,6 +991,7 @@ export async function createUser(formData: FormData) {
       lastName: parsed.data.lastName,
       passwordHash,
       organizationId: user.organizationId,
+      roleId: roles.member.id,
     },
   });
 
@@ -750,10 +1004,16 @@ export async function deactivateUser(userId: string) {
     return { success: false, error: { message: 'Permission denied' } };
   }
 
+  const targetUser = await prisma.user.findFirst({
+    where: { id: userId, organizationId: user.organizationId, deletedAt: null },
+  });
+  if (!targetUser) return { success: false, error: { message: 'User not found' } };
+
   await prisma.user.update({
     where: { id: userId },
     data: { isActive: false },
   });
+  await deleteUserSessions(userId);
 
   revalidatePath('/admin/users');
   return { success: true };
@@ -802,4 +1062,56 @@ export async function updateNotificationPreferences(formData: FormData) {
   });
 
   return { success: true };
+}
+
+export async function updateSlackWebhook(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user || !hasPermission(user.role, 'organization:update')) {
+    return { success: false, error: { message: 'Permission denied' } };
+  }
+
+  const raw = String(formData.get('slackWebhookUrl') ?? '').trim();
+  if (raw && !raw.startsWith('https://hooks.slack.com/')) {
+    return { success: false, error: { message: 'Must be a valid Slack incoming webhook URL' } };
+  }
+
+  const organization = await prisma.organization.findUnique({
+    where: { id: user.organizationId },
+    select: { settings: true },
+  });
+  const settings = (organization?.settings ?? {}) as Record<string, unknown>;
+
+  await prisma.organization.update({
+    where: { id: user.organizationId },
+    data: { settings: { ...settings, slackWebhookUrl: raw || undefined } },
+  });
+
+  revalidatePath('/settings');
+  return { success: true };
+}
+
+export async function getCalendarFeedUrl() {
+  const user = await getCurrentUser();
+  if (!user) return { success: false, error: { message: 'Unauthorized' } };
+
+  const dbUser = await prisma.user.findUnique({ where: { id: user.id }, select: { calendarToken: true } });
+  let token = dbUser?.calendarToken;
+
+  if (!token) {
+    token = crypto.randomUUID();
+    await prisma.user.update({ where: { id: user.id }, data: { calendarToken: token } });
+  }
+
+  return { success: true, data: { url: `${env.NEXT_PUBLIC_APP_URL}/api/v1/calendar/${token}/feed.ics` } };
+}
+
+export async function regenerateCalendarFeedToken() {
+  const user = await getCurrentUser();
+  if (!user) return { success: false, error: { message: 'Unauthorized' } };
+
+  const token = crypto.randomUUID();
+  await prisma.user.update({ where: { id: user.id }, data: { calendarToken: token } });
+
+  revalidatePath('/settings');
+  return { success: true, data: { url: `${env.NEXT_PUBLIC_APP_URL}/api/v1/calendar/${token}/feed.ics` } };
 }

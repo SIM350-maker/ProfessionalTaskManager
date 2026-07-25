@@ -2,14 +2,23 @@
 
 import { useRef, useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Bell, Sun, Moon, LogOut, User, Settings as SettingsIcon, ChevronRight } from "lucide-react";
+import { Search, Bell, Sun, Moon, LogOut, User, Settings as SettingsIcon, ChevronRight, Keyboard } from "lucide-react";
 import { cn, getInitials, timeAgo } from "@/lib/helpers";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { logoutUser } from "@/actions";
 import { useNotifications } from "@/features/notifications/useUnreadNotificationCount";
+import { CommandPalette } from "@/components/layouts/CommandPalette";
+import { KeyboardShortcutsModal } from "@/components/layouts/KeyboardShortcutsModal";
 import type { NotificationWithActor } from "@/types";
+
+const SHORTCUT_ROUTES: Record<string, string> = { d: "/dashboard", t: "/tasks", p: "/projects" };
+
+function isTypingTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  return target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable;
+}
 
 interface HeaderProps {
   actions?: React.ReactNode;
@@ -48,10 +57,14 @@ function getBreadcrumbItems(pathname: string): { label: string; href?: string }[
 
 export function Header({ actions, user }: HeaderProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [notifDropdownOpen, setNotifDropdownOpen] = useState(false);
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const notifDropdownRef = useRef<HTMLDivElement>(null);
+  const gPressedAtRef = useRef<number | null>(null);
   const { notifications, unreadCount, markAsRead } = useNotifications();
 
   useEffect(() => {
@@ -62,6 +75,37 @@ export function Header({ actions, user }: HeaderProps) {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if ((event.metaKey || event.ctrlKey) && event.key === "k") {
+        event.preventDefault();
+        setCommandPaletteOpen((prev) => !prev);
+        return;
+      }
+
+      if (isTypingTarget(event.target)) return;
+
+      if (event.key === "?") {
+        event.preventDefault();
+        setShortcutsOpen((prev) => !prev);
+        return;
+      }
+
+      if (event.key === "g") {
+        gPressedAtRef.current = Date.now();
+        return;
+      }
+
+      const route = SHORTCUT_ROUTES[event.key];
+      if (route && gPressedAtRef.current && Date.now() - gPressedAtRef.current < 600) {
+        gPressedAtRef.current = null;
+        router.push(route as Parameters<typeof router.push>[0]);
+      }
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [router]);
 
   const breadcrumbItems = getBreadcrumbItems(pathname);
 
@@ -87,13 +131,26 @@ export function Header({ actions, user }: HeaderProps) {
       <div className="flex items-center gap-2 sm:gap-3">
         {actions}
 
-        <button className="hidden sm:inline-flex items-center gap-2 rounded-lg border border-border-default bg-bg-subtle px-3 py-1.5 text-sm text-text-tertiary hover:border-border-hover hover:text-text-secondary transition-colors min-w-[180px]">
+        <button
+          onClick={() => setCommandPaletteOpen(true)}
+          className="hidden sm:inline-flex items-center gap-2 rounded-lg border border-border-default bg-bg-subtle px-3 py-1.5 text-sm text-text-tertiary hover:border-border-hover hover:text-text-secondary transition-colors min-w-[180px]"
+        >
           <Search className="h-4 w-4 shrink-0" />
           <span className="flex-1 text-left">Search...</span>
           <kbd className="ml-auto flex items-center gap-0.5 rounded-md border border-border-default bg-bg-card px-1.5 py-0.5 text-[10px] font-medium text-text-tertiary">
             <span className="text-xs">⌘</span>K
           </kbd>
         </button>
+
+        {user && (
+          <CommandPalette
+            open={commandPaletteOpen}
+            onClose={() => setCommandPaletteOpen(false)}
+            role={user.role}
+          />
+        )}
+
+        <KeyboardShortcutsModal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
 
         <div className="relative">
           <button
@@ -202,6 +259,13 @@ export function Header({ actions, user }: HeaderProps) {
                   <Link href="/settings" onClick={() => setDropdownOpen(false)} className="flex items-center gap-2 px-4 py-2 text-sm text-text-primary hover:bg-bg-hover transition-colors">
                     <SettingsIcon className="h-4 w-4" /> Settings
                   </Link>
+                  <button
+                    type="button"
+                    onClick={() => { setDropdownOpen(false); setShortcutsOpen(true); }}
+                    className="flex w-full items-center gap-2 px-4 py-2 text-sm text-text-primary hover:bg-bg-hover transition-colors"
+                  >
+                    <Keyboard className="h-4 w-4" /> Keyboard Shortcuts
+                  </button>
                   <div className="mx-3 my-1 h-px bg-border-default" />
                   <form action={logoutUser}>
                     <button type="submit" className="flex w-full items-center gap-2 px-4 py-2 text-sm text-accent-red hover:bg-bg-hover transition-colors">

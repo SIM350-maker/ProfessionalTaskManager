@@ -49,6 +49,7 @@
   --color-bg-inset: #f1f5f9;
 
   --color-border-default: #e2e8f0;
+  --color-border-subtle: #f1f5f9;
   --color-border-hover: #cbd5e1;
   --color-border-active: #2563eb;
 
@@ -174,6 +175,11 @@ body {
   from { width: 0%; }
 }
 
+@keyframes progressIndeterminate {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(300%); }
+}
+
 @keyframes ringRotate {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
@@ -187,6 +193,7 @@ body {
 .animate-count-up { animation: countUp var(--duration-normal) ease-out forwards; }
 .animate-slide-up { animation: slideUp 0.4s ease-out forwards; }
 .animate-progress-fill { animation: progressFill 1s ease-out forwards; }
+.animate-progress-indeterminate { animation: progressIndeterminate 1.5s ease-in-out infinite; }
 
 .skeleton {
   background: linear-gradient(90deg, var(--color-border-default) 25%, transparent 50%, var(--color-border-default) 75%);

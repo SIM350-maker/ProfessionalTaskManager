@@ -19,8 +19,12 @@ const providerStyles: Record<string, string> = {
 export function SocialLoginButton({ provider, icon, className, children }: SocialLoginButtonProps) {
   return (
     <Button
+      type="button"
       variant="outline"
       className={cn('w-full gap-2.5', providerStyles[provider], className)}
+      onClick={() => {
+        window.location.href = `/api/v1/auth/${provider}`;
+      }}
     >
       {icon}
       {children}

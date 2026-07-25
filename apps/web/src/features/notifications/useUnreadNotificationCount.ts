@@ -1,48 +1,49 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import type { NotificationWithActor } from '@/types';
 
-export function useUnreadNotificationCount(pollInterval = 30000) {
-  const [count, setCount] = useState(0);
+interface StreamPayload {
+  unreadCount: number;
+  notifications: NotificationWithActor[];
+}
+
+/**
+ * Subscribes to the /api/v1/notifications/stream SSE feed. EventSource handles
+ * reconnection natively on drop, so no manual retry loop is needed.
+ */
+function useNotificationStream() {
+  const [payload, setPayload] = useState<StreamPayload>({ unreadCount: 0, notifications: [] });
   const [loading, setLoading] = useState(true);
 
-  const fetchCount = useCallback(async () => {
-    try {
-      const res = await fetch('/api/v1/notifications?action=unread-count', {
-        cache: 'no-store',
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setCount(data.data?.count ?? 0);
-      }
-    } catch {
-      // ignore fetch errors
-    } finally {
+  useEffect(() => {
+    const source = new EventSource('/api/v1/notifications/stream');
+
+    source.addEventListener('notifications', (event) => {
+      const data = JSON.parse((event as MessageEvent<string>).data) as StreamPayload;
+      setPayload(data);
       setLoading(false);
-    }
+    });
+
+    source.onerror = () => {
+      setLoading(false);
+    };
+
+    return () => source.close();
   }, []);
 
-  useEffect(() => {
-    fetchCount();
-    const interval = setInterval(fetchCount, pollInterval);
-    return () => clearInterval(interval);
-  }, [fetchCount, pollInterval]);
+  return { payload, setPayload, loading };
+}
 
-  return { count, loading, refetch: fetchCount };
+export function useUnreadNotificationCount() {
+  const { payload, loading } = useNotificationStream();
+  return { count: payload.unreadCount, loading, refetch: () => {} };
 }
 
 export function useNotifications() {
-  const { data, refetch } = useQuery({
-    queryKey: ['notifications'],
-    queryFn: async () => {
-      const res = await fetch('/api/v1/notifications');
-      if (!res.ok) throw new Error('Failed to fetch notifications');
-      return res.json();
-    },
-  });
-
-  const { count: unreadCount } = useUnreadNotificationCount(30000);
+  const { payload, setPayload } = useNotificationStream();
+  const payloadRef = useRef(payload);
+  payloadRef.current = payload;
 
   const markAsRead = useCallback(async (notificationId?: string) => {
     try {
@@ -51,15 +52,20 @@ export function useNotifications() {
       } else {
         await fetch('/api/v1/notifications/read-all', { method: 'POST' });
       }
-      refetch();
+      setPayload((prev) => ({
+        unreadCount: notificationId ? Math.max(0, prev.unreadCount - 1) : 0,
+        notifications: prev.notifications.map((n) =>
+          !notificationId || n.id === notificationId ? { ...n, isRead: true } : n,
+        ),
+      }));
     } catch {
-      // ignore
+      // ignore — the next stream tick will reconcile
     }
-  }, [refetch]);
+  }, [setPayload]);
 
   return {
-    notifications: data?.data ?? [],
-    unreadCount,
+    notifications: payload.notifications,
+    unreadCount: payload.unreadCount,
     markAsRead,
   };
 }

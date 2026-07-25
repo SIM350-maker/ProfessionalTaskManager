@@ -1,6 +1,9 @@
 export default function AppLoading() {
   return (
     <div className="flex h-screen">
+      <div className="fixed inset-x-0 top-0 z-50 h-1 w-full overflow-hidden bg-border-default">
+        <div className="h-full w-1/3 bg-accent-blue animate-progress-indeterminate" />
+      </div>
       <aside className="flex w-64 flex-col gap-4 border-r border-border-default bg-bg-sidebar p-4">
         <div className="skeleton h-8 w-32" />
         <div className="skeleton h-4 w-24" />

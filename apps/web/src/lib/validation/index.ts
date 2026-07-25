@@ -109,9 +109,25 @@ export const paginationSchema = z.object({
 });
 
 export const createTimeEntrySchema = z.object({
+  taskId: z.string().min(1, { message: 'Task is required' }),
   startTime: z.string().datetime({ message: 'Invalid start time' }),
   endTime: z.string().datetime({ message: 'Invalid end time' }).optional(),
   description: z.string().max(1000).optional(),
+});
+
+export const createLabelSchema = z.object({
+  name: z.string().min(1, { message: 'Label name is required' }).max(50),
+  color: hexColorSchema,
+});
+
+export const createAttachmentSchema = z.object({
+  filename: z.string().min(1, { message: 'Filename is required' }),
+  originalName: z.string().min(1, { message: 'Original filename is required' }),
+  mimeType: z.string().min(1, { message: 'MIME type is required' }),
+  size: z.number().positive({ message: 'Size must be positive' }),
+  url: z.string().min(1, { message: 'URL is required' }),
+  taskId: z.string().min(1, { message: 'Task is required' }),
+  commentId: z.string().optional(),
 });
 
 export const notificationPreferencesSchema = z.object({

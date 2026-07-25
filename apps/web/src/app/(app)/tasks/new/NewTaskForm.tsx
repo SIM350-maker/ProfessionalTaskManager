@@ -11,6 +11,8 @@ import { CustomFieldsRenderer } from '@/components/tasks/CustomFieldsRenderer.cl
 import { useCustomFields } from '@/features/custom-fields';
 import { useWorkflows } from '@/features/workflows';
 import { useTaskTemplates } from '@/features/task-templates';
+import { getActionErrorMessage } from '@/lib/helpers';
+import { FormSkeleton } from '@/components/ui/form-skeleton';
 import type { Workflow } from '@/types';
 
 interface ProjectOption {
@@ -113,7 +115,7 @@ function Form({ projects, users, organizationId, projectId: projectIdParam }: Ne
     if (result.success && result.data) {
       router.push(`/tasks/${result.data.id}`);
     } else {
-      setError('Failed to create task');
+      setError(getActionErrorMessage(result.error));
     }
     setLoading(false);
   }
@@ -228,7 +230,7 @@ function Form({ projects, users, organizationId, projectId: projectIdParam }: Ne
 
 export default function NewTaskForm({ projects, users, organizationId, projectId }: NewTaskFormProps) {
   return (
-    <Suspense fallback={<div className="text-center text-text-tertiary py-12">Loading...</div>}>
+    <Suspense fallback={<FormSkeleton fields={6} />}>
       <Form projects={projects} users={users} organizationId={organizationId} projectId={projectId} />
     </Suspense>
   );

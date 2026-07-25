@@ -25,6 +25,11 @@ vi.mock('@/lib/database', () => ({
 
 vi.mock('next/headers', () => ({
   cookies: vi.fn(() => Promise.resolve(mockCookieStore)),
+  headers: vi.fn(() => Promise.resolve({ get: vi.fn(() => null) })),
+}));
+
+vi.mock('@/lib/security/rate-limiter', () => ({
+  checkAuthRateLimit: vi.fn(() => Promise.resolve({ allowed: true, remaining: 4, resetIn: 900000 })),
 }));
 
 vi.mock('next/cache', () => ({
@@ -43,6 +48,7 @@ vi.mock('@/lib/auth', () => ({
 vi.mock('@/lib/session', () => ({
   createSession: vi.fn(),
   deleteSession: vi.fn(),
+  deleteUserSessions: vi.fn(),
 }));
 
 vi.mock('bcryptjs', () => ({
@@ -129,5 +135,20 @@ describe('loginUser', () => {
     const result = await loginUser(formData);
     expect(result.success).toBe(false);
     expect((result.error as { message: string }).message).toBe('Invalid email or password');
+  });
+
+  it('is blocked when the auth rate limit has been exceeded', async () => {
+    const { loginUser } = await import('@/actions');
+    const { checkAuthRateLimit } = await import('@/lib/security/rate-limiter');
+    (checkAuthRateLimit as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ allowed: false, remaining: 0, resetIn: 900000 });
+
+    const formData = new FormData();
+    formData.append('email', 'test@example.com');
+    formData.append('password', 'Password123');
+
+    const result = await loginUser(formData);
+    expect(result.success).toBe(false);
+    expect((result.error as { message: string }).message).toMatch(/too many attempts/i);
+    expect(mockPrisma.user.findUnique).not.toHaveBeenCalled();
   });
 });
