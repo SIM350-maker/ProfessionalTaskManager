@@ -8,8 +8,10 @@ import { cn } from '@/lib/helpers';
 const tiers = [
   {
     name: 'Free',
-    price: 'KES 0',
-    period: '/month',
+    monthlyPrice: 'KES 0',
+    yearlyPrice: 'KES 0',
+    monthlyPeriod: '/month',
+    yearlyPeriod: '/month',
     description: 'For small teams getting started.',
     features: ['Up to 5 users', '10 projects', 'Basic task management', 'Email notifications', 'Community support'],
     cta: 'Get Started',
@@ -18,8 +20,10 @@ const tiers = [
   },
   {
     name: 'Starter',
-    price: 'KES 1,500',
-    period: '/user/month',
+    monthlyPrice: 'KES 1,500',
+    yearlyPrice: 'KES 12,000',
+    monthlyPeriod: '/user/month',
+    yearlyPeriod: '/user/month',
     description: 'For growing teams and departments.',
     features: ['Up to 25 users', 'Unlimited projects', 'Advanced reporting', 'Time tracking', 'Priority email support', 'API access'],
     cta: 'Start Free Trial',
@@ -28,8 +32,10 @@ const tiers = [
   },
   {
     name: 'Professional',
-    price: 'KES 3,000',
-    period: '/user/month',
+    monthlyPrice: 'KES 3,000',
+    yearlyPrice: 'KES 30,000',
+    monthlyPeriod: '/user/month',
+    yearlyPeriod: '/user/month',
     description: 'For organizations with advanced needs.',
     features: ['Unlimited users', 'Unlimited projects', 'Custom roles & permissions', 'Audit logs', 'SSO integration', 'Dedicated support', 'SLA guarantee'],
     cta: 'Contact Sales',
@@ -38,8 +44,10 @@ const tiers = [
   },
   {
     name: 'Enterprise',
-    price: 'Custom',
-    period: '',
+    monthlyPrice: 'Custom',
+    yearlyPrice: 'Custom',
+    monthlyPeriod: '',
+    yearlyPeriod: '',
     description: 'For large institutions and government.',
     features: ['On-premise deployment', 'Custom integrations', 'Advanced security & compliance', 'Dedicated infrastructure', '24/7 support', 'Training & onboarding'],
     cta: 'Talk to Us',
@@ -137,8 +145,8 @@ export function PricingCards() {
               <div className="text-center mb-6">
                 <h3 className="text-lg font-semibold text-white">{tier.name}</h3>
                 <div className="mt-3">
-                  <span className="text-3xl font-bold text-white">{tier.price}</span>
-                  {tier.period && <span className="text-sm text-white/50 ml-1">{tier.period}</span>}
+                  <span className="text-3xl font-bold text-white">{isYearly ? tier.yearlyPrice : tier.monthlyPrice}</span>
+                  {(isYearly ? tier.yearlyPeriod : tier.monthlyPeriod) && <span className="text-sm text-white/50 ml-1">{isYearly ? tier.yearlyPeriod : tier.monthlyPeriod}</span>}
                 </div>
                 <p className="text-sm text-white/60 mt-2">{tier.description}</p>
               </div>
